@@ -1,31 +1,41 @@
-use tiny_skia::{Color, Pixmap};
-use usvg::{Options, Transform, Tree};
+use tiny_skia::Pixmap;
 
-use crate::render::{error::RenderError, models::Size};
+use crate::render::{
+    components::Component,
+    error::RenderError,
+    models::{Rgba, Size},
+};
 
 pub struct Frame {
     pixmap: Pixmap,
+    components: Vec<Box<dyn Component>>,
 }
 
 impl Frame {
-    pub fn new(size: Size) -> Self {
-        Self {
-            pixmap: Pixmap::new(size.width, size.height).unwrap(),
+    pub fn new(size: Size) -> Result<Self, RenderError> {
+        let pixmap = Pixmap::new(size.width, size.height).ok_or(RenderError::CannotCreatePixmap)?;
+
+        Ok(Self {
+            pixmap,
+            components: Vec::new(),
+        })
+    }
+
+    pub fn set_background(&mut self, color: Rgba) {
+        self.pixmap.fill(color.to_tiny_skia());
+    }
+
+    pub fn add_component(&mut self, component: impl Component + 'static) {
+        self.components.push(Box::new(component));
+    }
+
+    pub fn render_components(&mut self) {
+        for component in &self.components {
+            component.render_to(&mut self.pixmap);
         }
     }
 
-    pub fn set_color(&mut self, color: tiny_skia::Color) {
-        self.pixmap.fill(color);
+    pub fn pixmap(&self) -> &Pixmap {
+        &self.pixmap
     }
-}
-
-pub trait Component {
-    fn render(&self) -> Pixmap;
-    fn render_to(&self, target: &mut Pixmap);
-    fn render_region(&self, rect: tiny_skia::Rect) -> Pixmap;
-
-    fn size(&self) -> Size;
-    fn set_color(&mut self, color: Color);
-    fn set_opacity(&mut self, alpha: f32);
-    fn color(&self) -> Color;
 }
