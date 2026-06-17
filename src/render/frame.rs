@@ -29,6 +29,10 @@ impl Frame {
         self.components.push(Box::new(component));
     }
 
+    pub fn add_boxed_component(&mut self, component: Box<dyn Component>) {
+        self.components.push(component);
+    }
+
     pub fn render_components(&mut self) {
         for component in &self.components {
             component.render_to(&mut self.pixmap);

@@ -36,17 +36,24 @@ impl Component for Rectangle {
 
     fn render_to(&self, target: &mut Pixmap) {
         let color = self.fill.to_tiny_skia().premultiply().to_color_u8();
-        let x = self.bounds.position.x.max(0) as u32;
-        let y = self.bounds.position.y.max(0) as u32;
-        let max_x = (x + self.bounds.size.width).min(target.width());
-        let max_y = (y + self.bounds.size.height).min(target.height());
+        let start_x = self.bounds.position.x.max(0) as u32;
+        let start_y = self.bounds.position.y.max(0) as u32;
+
+        let end_x = ((self.bounds.position.x as i64) + (self.bounds.size.width as i64))
+            .clamp(0, target.width() as i64) as u32;
+        let end_y = ((self.bounds.position.y as i64) + (self.bounds.size.height as i64))
+            .clamp(0, target.height() as i64) as u32;
+
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
 
         let width = target.width() as usize;
         let pixels = target.pixels_mut();
 
-        for py in y..max_y {
+        for py in start_y..end_y {
             let row = py as usize * width;
-            for px in x..max_x {
+            for px in start_x..end_x {
                 let idx = row + px as usize;
                 pixels[idx] = color;
             }
