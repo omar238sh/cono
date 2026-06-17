@@ -76,8 +76,9 @@ impl Rgba {
     }
 
     pub fn to_tiny_skia(self) -> tiny_skia::Color {
-        tiny_skia::Color::from_rgba(self.r, self.g, self.b, self.a)
-            .unwrap_or(tiny_skia::Color::BLACK)
+        let clamp = |value: f32| value.clamp(0.0, 1.0);
+        tiny_skia::Color::from_rgba(clamp(self.r), clamp(self.g), clamp(self.b), clamp(self.a))
+            .expect("clamped RGBA components must be valid")
     }
 }
 

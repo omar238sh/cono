@@ -36,26 +36,36 @@ impl Component for Rectangle {
 
     fn render_to(&self, target: &mut Pixmap) {
         let color = self.fill.to_tiny_skia().premultiply().to_color_u8();
-        let start_x = self.bounds.position.x.max(0) as u32;
-        let start_y = self.bounds.position.y.max(0) as u32;
+        let width = target.width();
+        let height = target.height();
 
-        let end_x = ((self.bounds.position.x as i64) + (self.bounds.size.width as i64))
-            .clamp(0, target.width() as i64) as u32;
-        let end_y = ((self.bounds.position.y as i64) + (self.bounds.size.height as i64))
-            .clamp(0, target.height() as i64) as u32;
+        let start_x = self.bounds.position.x.clamp(0, width as i32) as u32;
+        let start_y = self.bounds.position.y.clamp(0, height as i32) as u32;
+
+        let end_x = self
+            .bounds
+            .position
+            .x
+            .saturating_add(self.bounds.size.width as i32)
+            .clamp(0, width as i32) as u32;
+        let end_y = self
+            .bounds
+            .position
+            .y
+            .saturating_add(self.bounds.size.height as i32)
+            .clamp(0, height as i32) as u32;
 
         if start_x >= end_x || start_y >= end_y {
             return;
         }
 
-        let width = target.width() as usize;
+        let row_width = width as usize;
         let pixels = target.pixels_mut();
 
         for py in start_y..end_y {
-            let row = py as usize * width;
+            let row = py as usize * row_width;
             for px in start_x..end_x {
-                let idx = row + px as usize;
-                pixels[idx] = color;
+                pixels[row + px as usize] = color;
             }
         }
     }
