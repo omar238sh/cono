@@ -76,7 +76,8 @@ impl Rgba {
     }
 
     pub fn to_tiny_skia(self) -> tiny_skia::Color {
-        tiny_skia::Color::from_rgba(self.r, self.g, self.b, self.a).unwrap_or(tiny_skia::Color::BLACK)
+        tiny_skia::Color::from_rgba(self.r, self.g, self.b, self.a)
+            .unwrap_or(tiny_skia::Color::BLACK)
     }
 }
 
