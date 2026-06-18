@@ -43,7 +43,8 @@ impl Pixmap {
     }
 
     pub fn fill(&mut self, color: Color) {
-        let pixel = Rgba([color.r, color.g, color.b, color.a]);
+        let rgba = color.to_rgba8();
+        let pixel = Rgba([rgba.r, rgba.g, rgba.b, rgba.a]);
         for p in self.image.pixels_mut() {
             *p = pixel;
         }
@@ -86,14 +87,15 @@ pub trait Component {
     }
 
     fn set_color(&mut self, color: Color) -> Result<(), RenderError> {
+        let rgba = color.to_rgba8();
         let buffer = self.content_mut().data_mut();
         for px in buffer.chunks_exact_mut(4) {
             let old_alpha = px[3] as u16;
-            let color_alpha = color.a as u16;
+            let color_alpha = rgba.a as u16;
             let new_alpha = ((old_alpha * color_alpha) / 255) as u8;
-            px[0] = color.r;
-            px[1] = color.g;
-            px[2] = color.b;
+            px[0] = rgba.r;
+            px[1] = rgba.g;
+            px[2] = rgba.b;
             px[3] = new_alpha;
         }
         Ok(())

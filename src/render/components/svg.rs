@@ -38,27 +38,31 @@ fn render_scene_to_pixmap(scene: &Scene, pixmap: &mut Pixmap) -> Result<(), Rend
     }
 
     let mut context = RenderContext::new();
-    let dev_id = pollster::block_on(context.device(None))
-        .ok_or_else(|| RenderError::CustomError("Cannot create compatible GPU device".to_string()))?;
+    let dev_id = pollster::block_on(context.device(None)).ok_or_else(|| {
+        RenderError::CustomError("Cannot create compatible GPU device".to_string())
+    })?;
     let device_handle = &context.devices[dev_id];
 
     let mut renderer = Renderer::new(&device_handle.device, RendererOptions::default())
         .map_err(|e| RenderError::CustomError(format!("Cannot create Vello renderer: {e}")))?;
 
-    let texture = device_handle.device.create_texture(&vello::wgpu::TextureDescriptor {
-        label: Some("svg-target-texture"),
-        size: vello::wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: vello::wgpu::TextureDimension::D2,
-        format: vello::wgpu::TextureFormat::Rgba8Unorm,
-        usage: vello::wgpu::TextureUsages::STORAGE_BINDING | vello::wgpu::TextureUsages::COPY_SRC,
-        view_formats: &[],
-    });
+    let texture = device_handle
+        .device
+        .create_texture(&vello::wgpu::TextureDescriptor {
+            label: Some("svg-target-texture"),
+            size: vello::wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: vello::wgpu::TextureDimension::D2,
+            format: vello::wgpu::TextureFormat::Rgba8Unorm,
+            usage: vello::wgpu::TextureUsages::STORAGE_BINDING
+                | vello::wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
     let texture_view = texture.create_view(&vello::wgpu::TextureViewDescriptor::default());
 
     renderer
@@ -82,12 +86,14 @@ fn render_scene_to_pixmap(scene: &Scene, pixmap: &mut Pixmap) -> Result<(), Rend
     let padded_bytes_per_row = unpadded_bytes_per_row.div_ceil(align) * align;
     let buffer_size = (padded_bytes_per_row * height) as u64;
 
-    let output_buffer = device_handle.device.create_buffer(&vello::wgpu::BufferDescriptor {
-        label: Some("svg-readback-buffer"),
-        size: buffer_size,
-        usage: vello::wgpu::BufferUsages::COPY_DST | vello::wgpu::BufferUsages::MAP_READ,
-        mapped_at_creation: false,
-    });
+    let output_buffer = device_handle
+        .device
+        .create_buffer(&vello::wgpu::BufferDescriptor {
+            label: Some("svg-readback-buffer"),
+            size: buffer_size,
+            usage: vello::wgpu::BufferUsages::COPY_DST | vello::wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
 
     let mut encoder =
         device_handle
