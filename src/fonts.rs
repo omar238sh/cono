@@ -17,6 +17,11 @@ impl Fonts {
         self.fonts.push(Assets::get_font(font_name).unwrap());
         self
     }
+
+    pub fn add_ttf(mut self, font_name: &str) -> Self {
+        self.fonts.push(Assets::get_ttf(font_name).unwrap());
+        self
+    }
 }
 
 impl Default for Fonts {
@@ -63,6 +68,16 @@ impl Default for Fonts {
             .add("NewCMUncial10-Bold")
             .add("NewCMUncial10-Book")
             .add("NewCMUncial10-Regular")
+            .add_ttf("NotoKufiArabic-Black")
+            .add_ttf("NotoKufiArabic-Bold")
+            .add_ttf("NotoKufiArabic-ExtraBold")
+            .add_ttf("NotoKufiArabic-ExtraLight")
+            .add_ttf("NotoKufiArabic-Light")
+            .add_ttf("NotoKufiArabic-Medium")
+            .add_ttf("NotoKufiArabic-Regular")
+            .add_ttf("NotoKufiArabic-SemiBold")
+            .add_ttf("NotoKufiArabic-Thin")
+            .add_ttf("NotoKufiArabic-VariableFont_wght")
     }
 }
 

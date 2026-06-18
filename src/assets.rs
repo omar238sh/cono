@@ -11,4 +11,10 @@ impl Assets {
         let bytes = Bytes::new(font.data);
         Font::new(bytes, 0)
     }
+
+    pub fn get_ttf(font_name: &str) -> Option<Font> {
+        let font = Self::get(&format!("fonts/ttf/{font_name}.ttf"))?;
+        let bytes = Bytes::new(font.data);
+        Font::new(bytes, 0)
+    }
 }
