@@ -10,6 +10,7 @@ image = "0.25.9"
 mlua = {version = "0.11.6" , features = ["luau"] }
 pollster = "0.4.0"
 rust-embed = "8.11.0"
+taffy = "0.11.0"
 thiserror = "2.0.18"
 typst = "0.14.2"
 typst-svg = "0.14.2"

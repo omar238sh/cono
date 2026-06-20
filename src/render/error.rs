@@ -6,6 +6,5 @@ pub enum RenderError {
     VelloSvgError(#[from] vello_svg::Error),
     #[error("{0}")]
     CustomError(String),
-    #[error("failed to create pixmap")]
-    CannotCreatePixmap,
+
 }

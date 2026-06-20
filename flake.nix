@@ -13,7 +13,12 @@
   outputs = { self, nixpkgs, fenix, ... }@inputs:
     let
       system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
+      pkgs = import nixpkgs {
+        inherit system;
+        config = {
+          allowUnfree = true;
+        };
+      };
       rustToolchain = fenix.packages.${system}.combine [
         
         fenix.packages.${system}.stable.cargo
@@ -36,9 +41,14 @@
           rustToolchain
           pkgs.pkg-config
           pkgs.openssl
+          pkgs.vulkan-loader
+          pkgs.mesa
+          pkgs.antigravity-cli
         ];
 
         shellHook = ''
+          export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.vulkan-loader ]}:$LD_LIBRARY_PATH"
+          export VK_ICD_FILENAMES="${pkgs.mesa.drivers}/share/vulkan/icd.d/lvp_icd.x86_64.json"
           echo "🚀 Rust development environment ready!"
           echo "Nixpkgs: ${pkgs.lib.version}"
         '';
