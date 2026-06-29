@@ -11,7 +11,10 @@ use typst::{
 };
 use typst_svg::svg;
 
-use crate::{fonts::Fonts, render::typst::pager::Pager};
+use crate::{
+    fonts::Fonts,
+    render::{components::svg::SvgBox, error::RenderError, typst::pager::Pager},
+};
 
 pub mod pager {
     #![allow(unused)]
@@ -101,7 +104,7 @@ impl LuaWorld {
         }
     }
 
-    pub fn to_svgs(&self) -> SourceResult<Vec<String>> {
+    pub fn to_svgs(&self) -> Result<Vec<SvgBox>, RenderError> {
         let document = match typst::compile::<PagedDocument>(self) {
             Warned {
                 output: Ok(doc), ..
@@ -110,13 +113,13 @@ impl LuaWorld {
                 output: Err(errors),
                 ..
             } => {
-                return Err(errors);
+                return Err(RenderError::TypstError(format!("{errors:?}")));
             }
         };
         let mut results = Vec::new();
         if document.pages.len() >= 1 {
             for page in &document.pages {
-                results.push(svg(page));
+                results.push(SvgBox::new(svg(page))?);
             }
             return Ok(results);
         } else {

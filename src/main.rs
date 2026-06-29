@@ -10,5 +10,4 @@ fn main() {
             .add("$x = x + 1$")
             .add("$y = (x + 1) / 3$"),
     );
-    let sv = world.to_svgs().unwrap();
 }

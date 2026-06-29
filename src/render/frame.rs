@@ -1,7 +1,9 @@
+use taffy::{NodeId, TaffyResult, TaffyTree};
 use vello::Scene;
-use vello::peniko::Color;
 use vello::kurbo::{Affine, Rect};
+use vello::peniko::Color;
 
+use crate::render::error::RenderError;
 use crate::render::models::Size;
 
 pub struct Frame {
@@ -30,12 +32,19 @@ impl Frame {
 }
 
 pub trait Component {
-    fn render(&self) -> Scene;
-    
-    fn render_to(&self, target: &mut Scene, transform: Affine) {
-        let content = self.render();
-        target.append(&content, Some(transform));
-    }
+    fn render(&self, tree: &TaffyTree) -> Result<Scene, RenderError>;
 
     fn size(&self) -> Size;
+
+    fn computed_size(&self, tree: &TaffyTree) -> Result<Size, RenderError> {
+        let id = self.layout()?;
+        let layout = tree.layout(id)?;
+
+        let size = Size::new(layout.size.width as f64, layout.size.height as f64);
+
+        Ok(size)
+    }
+
+    fn register_layout(&mut self, tree: &mut TaffyTree) -> TaffyResult<NodeId>;
+    fn layout(&self) -> Result<NodeId, RenderError>;
 }
