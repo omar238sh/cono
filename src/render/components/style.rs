@@ -2,6 +2,7 @@ use taffy::LengthPercentage;
 
 use crate::render::models::Size;
 
+#[derive(Clone)]
 pub struct Style {
     size: Size,
     arrangement: Arrangement,
@@ -47,7 +48,7 @@ impl Style {
         &mut self.padding
     }
 }
-
+#[derive(Clone)]
 pub enum Arrangement {
     SpaceBetween,
     SpacedBy(u32),
@@ -58,12 +59,14 @@ pub enum Arrangement {
     Center,
 }
 
+#[derive(Clone)]
 pub enum Alignment {
     Start,
     End,
     Center,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Padding {
     left: f64,
     right: f64,

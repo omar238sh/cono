@@ -7,8 +7,11 @@ use vello::{
     peniko::Color,
 };
 
-use crate::render::{components::style::Padding, frame::Component, models::Size};
+use crate::render::{
+    components::style::Padding, error::RenderError, frame::Component, models::Size,
+};
 
+#[derive(Clone)]
 pub struct Container<C: Component> {
     pub id: Option<NodeId>,
     pub child: C,
@@ -74,7 +77,7 @@ impl<C: Component> Container<C> {
     }
 }
 
-impl<C: Component> Component for Container<C> {
+impl<C: Component + Clone + 'static> Component for Container<C> {
     fn render(&self, tree: &TaffyTree) -> Result<vello::Scene, crate::render::error::RenderError> {
         // let id = tree.layout(self.layout()?)?;
 
@@ -114,7 +117,10 @@ impl<C: Component> Component for Container<C> {
         self.size
     }
 
-    fn register_layout(&mut self, tree: &mut TaffyTree) -> taffy::TaffyResult<taffy::NodeId> {
+    fn register_layout(
+        &mut self,
+        tree: &mut TaffyTree,
+    ) -> std::result::Result<taffy::NodeId, RenderError> {
         if let Some(node_id) = self.id {
             return Ok(node_id);
         }

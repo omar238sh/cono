@@ -8,6 +8,7 @@ use crate::render::{
     components::style::Padding, error::RenderError, frame::Component, models::Size,
 };
 
+#[derive(Clone)]
 pub struct SvgBox {
     scene: Scene,
     // tree: Tree,
@@ -28,7 +29,7 @@ impl Component for SvgBox {
     fn register_layout(
         &mut self,
         tree: &mut taffy::TaffyTree,
-    ) -> taffy::TaffyResult<taffy::NodeId> {
+    ) -> std::result::Result<taffy::NodeId, RenderError> {
         if let Some(id) = self.id {
             return Ok(id);
         }

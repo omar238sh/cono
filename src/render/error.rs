@@ -14,4 +14,6 @@ pub enum RenderError {
     NotComputed,
     #[error("typst errors {0}")]
     TypstError(String),
+    #[error("Compiler access error")]
+    TypstCompilerError,
 }

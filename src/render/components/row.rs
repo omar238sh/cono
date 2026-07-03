@@ -8,6 +8,7 @@ use crate::render::{
     models::Size,
 };
 
+#[derive(Clone)]
 pub struct Row {
     contents: Vec<Box<dyn Component>>,
     id: Option<NodeId>,
@@ -65,7 +66,10 @@ impl Component for Row {
         self.style.size()
     }
 
-    fn register_layout(&mut self, tree: &mut TaffyTree) -> taffy::TaffyResult<NodeId> {
+    fn register_layout(
+        &mut self,
+        tree: &mut TaffyTree,
+    ) -> std::result::Result<taffy::NodeId, RenderError> {
         if let Some(id) = self.id {
             return Ok(id);
         }
@@ -73,7 +77,7 @@ impl Component for Row {
             .contents
             .iter_mut()
             .map(|a| a.register_layout(tree))
-            .collect::<Result<Vec<NodeId>, TaffyError>>()?;
+            .collect::<Result<Vec<NodeId>, RenderError>>()?;
 
         let mut parent_style: taffy::Style = taffy::Style {
             flex_direction: taffy::FlexDirection::Row,

@@ -31,7 +31,7 @@ impl Frame {
     }
 }
 
-pub trait Component {
+pub trait Component: ComponentClone {
     fn render(&self, tree: &TaffyTree) -> Result<Scene, RenderError>;
 
     fn size(&self) -> Size;
@@ -45,6 +45,25 @@ pub trait Component {
         Ok(size)
     }
 
-    fn register_layout(&mut self, tree: &mut TaffyTree) -> TaffyResult<NodeId>;
+    fn register_layout(&mut self, tree: &mut TaffyTree) -> Result<NodeId, RenderError>;
     fn layout(&self) -> Result<NodeId, RenderError>;
+}
+
+pub trait ComponentClone {
+    fn clone_box(&self) -> Box<dyn Component>;
+}
+
+impl<T> ComponentClone for T
+where
+    T: Component + Clone + 'static,
+{
+    fn clone_box(&self) -> Box<dyn Component> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Component> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
 }

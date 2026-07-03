@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use taffy::{AlignItems, JustifyContent, NodeId, TaffyError, TaffyTree, prelude::length};
 use vello::{Scene, kurbo::Affine};
 
@@ -10,6 +8,7 @@ use crate::render::{
     models::Size,
 };
 
+#[derive(Clone)]
 pub struct Column {
     contents: Vec<Box<dyn Component>>,
     id: Option<NodeId>,
@@ -67,7 +66,10 @@ impl Component for Column {
         self.style.size()
     }
 
-    fn register_layout(&mut self, tree: &mut TaffyTree) -> taffy::TaffyResult<NodeId> {
+    fn register_layout(
+        &mut self,
+        tree: &mut TaffyTree,
+    ) -> std::result::Result<taffy::NodeId, RenderError> {
         if let Some(id) = self.id {
             return Ok(id);
         }
@@ -75,7 +77,7 @@ impl Component for Column {
             .contents
             .iter_mut()
             .map(|a| a.register_layout(tree))
-            .collect::<Result<Vec<NodeId>, TaffyError>>()?;
+            .collect::<Result<Vec<NodeId>, RenderError>>()?;
 
         let mut parent_style: taffy::Style = taffy::Style {
             flex_direction: taffy::FlexDirection::Column,
@@ -131,9 +133,10 @@ impl Component for Column {
 #[cfg(test)]
 mod tests {
     use taffy::TaffyTree;
+    use typst::text::TextDir;
 
     use crate::render::{
-        components::{SceneGpuRenderer, column::Column, svg::SvgBox},
+        components::{SceneGpuRenderer, column::Column, svg::SvgBox, text::Text},
         error::RenderError,
         frame::Component,
         models::Size,
@@ -145,25 +148,10 @@ mod tests {
         let mut column = Column::new(Size::tiktok())
             .edit_arrangment(super::Arrangement::SpaceAround)
             .edit_alignment(crate::render::components::style::Alignment::Center);
-        let world = LuaWorld::new(Pager::new()
-            .add("Hello")
-            .add("مرحبا")
-            .add("عمر يفعلها")
-            .add("$ f(x) = frac(a_0, 2) + sum_(n=1)^∞ [a_n cos(frac(n π x, L)) + b_n sin(frac(n π x, L))] $")
-        )
-            .to_svgs()
-            .map_err(|_| RenderError::CustomError("Cannot make svgs".to_string()))?
-            .into_iter()
-            .map(|a| {
-                let svg = a.scale(3.0);
-                Ok(svg)
-            })
-            .collect::<Result<Vec<SvgBox>, RenderError>>()?;
-        for text in world {
-            column.push(text);
-        }
 
+        column.push(Text::new("Hello").color("#87d5fe"));
         column.register_layout(&mut tree)?;
+
         let mut renderer = SceneGpuRenderer::new()?;
 
         let image = renderer.render_to_image(

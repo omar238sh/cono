@@ -7,7 +7,8 @@ edition = "2024"
 chrono = "0.4.45"
 image = "0.25.9"
 
-mlua = {version = "0.11.6" , features = ["luau"] }
+mlua-extras = { version = "11.6.2" , features = ["luau-jit", "macros"]} 
+
 pollster = "0.4.0"
 rust-embed = "8.11.0"
 taffy = "0.11.0"

@@ -104,6 +104,10 @@ impl LuaWorld {
         }
     }
 
+    pub fn raw_content(&mut self, src: impl ToString) {
+        self.main_source = Source::new(self.main_id, src.to_string());
+    }
+
     pub fn to_svgs(&self) -> Result<Vec<SvgBox>, RenderError> {
         let document = match typst::compile::<PagedDocument>(self) {
             Warned {

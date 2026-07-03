@@ -1,0 +1,290 @@
+use std::ops::{Add, Deref, DerefMut};
+
+use crate::render::{error::RenderError, frame::Component, models::Size};
+use taffy::{NodeId, prelude::length};
+use vello::{Scene, kurbo::Affine};
+
+#[derive(Clone)]
+pub struct FreeBox {
+    contents: Vec<LocatedComponent>,
+    size: Size,
+    id: Option<NodeId>,
+}
+
+#[derive(Clone)]
+pub enum Coordinate {
+    Absolute(f64),
+    Percentage(f64),
+    Relative {
+        target: Box<Coordinate>,
+        shift: Box<Coordinate>,
+    },
+}
+
+impl Coordinate {
+    pub fn percentage(v: f64) -> Self {
+        Self::Percentage(v.clamp(0.0, 1.0))
+    }
+
+    pub fn absolute(v: f64) -> Self {
+        Self::Absolute(v)
+    }
+
+    pub fn to_absolute(&self, max_length: f64) -> Self {
+        match self {
+            Coordinate::Absolute(c) => Self::Absolute(c.clone()),
+            Coordinate::Percentage(v) => Coordinate::Absolute(v * max_length),
+            Coordinate::Relative { target, shift } => {
+                let v1 = match target.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+
+                let v2 = match shift.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+
+                Coordinate::Absolute(v1 + v2)
+            }
+        }
+    }
+
+    pub fn to_num(&self, max_length: f64) -> f64 {
+        let a = match self.to_absolute(max_length) {
+            Coordinate::Absolute(c) => c,
+            _ => unreachable!(),
+        };
+        a
+    }
+}
+
+impl Add for Coordinate {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Relative {
+            target: Box::new(self),
+            shift: Box::new(rhs),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Location {
+    pub x: Coordinate,
+    pub y: Coordinate,
+}
+
+impl Add for Location {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Location {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct LocatedComponent {
+    pub child: Box<dyn Component>,
+    pub location: Location,
+}
+
+impl LocatedComponent {
+    pub fn new<C: Component + 'static>(child: C, location: Location) -> Self {
+        Self {
+            child: Box::new(child),
+            location: location,
+        }
+    }
+
+    pub fn location(&self) -> Location {
+        self.location.clone()
+    }
+}
+
+impl Deref for LocatedComponent {
+    type Target = dyn Component;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.child
+    }
+}
+
+impl DerefMut for LocatedComponent {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.child
+    }
+}
+
+impl Location {
+    pub fn new(x: Coordinate, y: Coordinate) -> Self {
+        Self { x, y }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            x: Coordinate::Absolute(0.0),
+            y: Coordinate::Absolute(0.0),
+        }
+    }
+}
+
+impl FreeBox {
+    pub fn new(size: Size) -> Self {
+        Self {
+            contents: Vec::new(),
+            size: size,
+            id: None,
+        }
+    }
+
+    pub fn with_child(mut self, child: LocatedComponent) -> Self {
+        self.contents.push(child);
+        self
+    }
+}
+
+impl Component for FreeBox {
+    fn render(
+        &self,
+        tree: &taffy::TaffyTree,
+    ) -> Result<vello::Scene, crate::render::error::RenderError> {
+        let mut scene = Scene::new();
+
+        for component in &self.contents {
+            let Location { x, y } = &component.location;
+
+            scene.append(
+                &component.render(tree)?,
+                Some(Affine::translate((
+                    x.to_num(self.size().width),
+                    y.to_num(self.size().height),
+                ))),
+            );
+        }
+
+        Ok(scene)
+    }
+
+    fn size(&self) -> Size {
+        self.size
+    }
+
+    fn register_layout(
+        &mut self,
+        tree: &mut taffy::TaffyTree,
+    ) -> Result<NodeId, crate::render::error::RenderError> {
+        if let Some(id) = self.id {
+            return Ok(id);
+        }
+        let ids = self
+            .contents
+            .iter_mut()
+            .map(|a| a.register_layout(tree))
+            .collect::<Result<Vec<NodeId>, RenderError>>()?;
+
+        let parent_style: taffy::Style = taffy::Style {
+            size: taffy::Size {
+                width: length(self.size().width as f32),
+                height: length(self.size().height as f32),
+            },
+            ..Default::default()
+        };
+
+        let id = tree.new_with_children(parent_style, &ids)?;
+        tree.compute_layout(id, taffy::Size::max_content())?;
+        self.id = Some(id);
+        Ok(id)
+    }
+
+    fn layout(&self) -> Result<NodeId, crate::render::error::RenderError> {
+        match self.id {
+            Some(v) => Ok(v),
+            None => Err(RenderError::NotComputed),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        assets::Assets,
+        render::{
+            components::{
+                SceneGpuRenderer,
+                column::Column,
+                container::Container,
+                row::Row,
+                style::{Alignment, Arrangement},
+                svg::SvgBox,
+                text::Text,
+            },
+            error::RenderError,
+            frame::Component,
+            models::Size,
+            typst::{LuaWorld, pager::Pager},
+        },
+    };
+    use taffy::TaffyTree;
+    use vello::peniko::Color;
+    #[test]
+    fn test_freebox_compose() -> Result<(), RenderError> {
+        let mut tree = TaffyTree::new();
+
+        let logo_svg =
+            String::from_utf8(Assets::get("cono_circle.svg").unwrap().data.to_vec()).unwrap();
+        let logo = SvgBox::new(logo_svg)?.scale(0.6);
+
+        let mut row = Row::new(Size::tiktok())
+            .edit_arrangment(Arrangement::SpaceAround)
+            .edit_alignment(Alignment::Center);
+        let mut column = Column::new(Size::tiktok())
+            .edit_arrangment(Arrangement::SpaceAround)
+            .edit_alignment(Alignment::Center);
+        for _ in 1..8 {
+            column.push(logo.clone());
+        }
+
+        for _ in 1..5 {
+            row.push(column.clone());
+        }
+
+        let c = Container::new(row).background(Color::from_rgb8(20, 20, 20)); // #141414        
+
+        let located_container = LocatedComponent::new(c, Location::zero());
+
+        // Create a text component to place directly in the FreeBox
+        let text = Text::new("FreeBox Direct Text").color("#ffff00").size(32);
+
+        let located_text = LocatedComponent::new(
+            text,
+            located_container.location()
+                + Location::new(Coordinate::percentage(0.5), Coordinate::percentage(0.5)),
+        ); // Create the FreeBox and add components
+        let mut freebox = FreeBox::new(Size::tiktok())
+            .with_child(located_container)
+            .with_child(located_text);
+
+        // Register layouts
+        freebox.register_layout(&mut tree)?;
+
+        // Render to image
+        let mut renderer = SceneGpuRenderer::new()?;
+        let image = renderer.render_to_image(
+            &freebox.render(&tree)?,
+            freebox.size().width as u32,
+            freebox.size().height as u32,
+        )?;
+
+        image
+            .save("./tests/freebox_compose.png")
+            .map_err(|a| RenderError::CustomError(format!("Cannot Save png {a}")))?;
+
+        Ok(())
+    }
+}
