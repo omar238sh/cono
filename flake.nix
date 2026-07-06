@@ -2,7 +2,7 @@
   description = "Rust Development Environment";
 
   inputs = {
-    nixpkgs.url = "path:/nix/store/pfwrb65dsv8phlsf1m98bvz11cvgb290-source";
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     
     fenix = {
       url = "github:nix-community/fenix";
@@ -10,7 +10,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, fenix, ... }@inputs:
+  outputs = {  nixpkgs, fenix, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {

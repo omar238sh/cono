@@ -71,9 +71,19 @@ impl Add for Coordinate {
 }
 
 #[derive(Clone)]
+pub enum Anchor {
+    Center,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+#[derive(Clone)]
 pub struct Location {
     pub x: Coordinate,
     pub y: Coordinate,
+    pub anchor: Anchor,
 }
 
 impl Add for Location {
@@ -83,6 +93,7 @@ impl Add for Location {
         Location {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+            anchor: Anchor::TopLeft,
         }
     }
 }
@@ -94,15 +105,25 @@ pub struct LocatedComponent {
 }
 
 impl LocatedComponent {
-    pub fn new<C: Component + 'static>(child: C, location: Location) -> Self {
+    pub fn new<C: Component + 'static>(child: C) -> Self {
         Self {
             child: Box::new(child),
-            location: location,
+            location: Location::zero(),
         }
     }
 
     pub fn location(&self) -> Location {
         self.location.clone()
+    }
+
+    pub fn set_location(mut self, location: Location) -> Self {
+        self.location = location;
+        self
+    }
+
+    pub fn set_anchor(mut self, anchor: Anchor) -> Self {
+        self.location.anchor = anchor;
+        self
     }
 }
 
@@ -122,13 +143,55 @@ impl DerefMut for LocatedComponent {
 
 impl Location {
     pub fn new(x: Coordinate, y: Coordinate) -> Self {
-        Self { x, y }
+        Self {
+            x,
+            y,
+            anchor: Anchor::TopLeft,
+        }
     }
 
     pub fn zero() -> Self {
         Self {
             x: Coordinate::Absolute(0.0),
             y: Coordinate::Absolute(0.0),
+            anchor: Anchor::TopLeft,
+        }
+    }
+
+    pub fn center(anchor: Anchor) -> Self {
+        Location {
+            x: Coordinate::Percentage(0.5),
+            y: Coordinate::Percentage(0.5),
+            anchor: anchor,
+        }
+    }
+
+    pub fn as_topleft(&self, size: Size) -> Location {
+        if matches!(self.anchor, Anchor::TopLeft) {
+            return self.clone();
+        }
+
+        let x_num = self.x.clone();
+        let y_num = self.y.clone();
+        let w_num = size.width;
+        let h_num = size.height;
+
+        let new_x = match self.anchor {
+            Anchor::TopLeft | Anchor::BottomLeft => x_num,
+            Anchor::TopRight | Anchor::BottomRight => x_num + Coordinate::Absolute(-w_num),
+            Anchor::Center => x_num + Coordinate::Absolute(-(w_num / 2.0)),
+        };
+
+        let new_y = match self.anchor {
+            Anchor::TopLeft | Anchor::TopRight => y_num,
+            Anchor::BottomLeft | Anchor::BottomRight => y_num + Coordinate::Absolute(-h_num),
+            Anchor::Center => y_num + Coordinate::Absolute(-(h_num / 2.0)),
+        };
+
+        Location {
+            x: new_x,
+            y: new_y,
+            anchor: Anchor::TopLeft,
         }
     }
 }
@@ -156,7 +219,7 @@ impl Component for FreeBox {
         let mut scene = Scene::new();
 
         for component in &self.contents {
-            let Location { x, y } = &component.location;
+            let Location { x, y, .. } = &component.location.as_topleft(component.size());
 
             scene.append(
                 &component.render(tree)?,
@@ -238,7 +301,7 @@ mod tests {
 
         let logo_svg =
             String::from_utf8(Assets::get("cono_circle.svg").unwrap().data.to_vec()).unwrap();
-        let logo = SvgBox::new(logo_svg)?.scale(0.6);
+        let logo = SvgBox::new(logo_svg)?;
 
         let mut row = Row::new(Size::tiktok())
             .edit_arrangment(Arrangement::SpaceAround)
@@ -254,18 +317,15 @@ mod tests {
             row.push(column.clone());
         }
 
-        let c = Container::new(row).background(Color::from_rgb8(20, 20, 20)); // #141414        
+        let c = Container::new(row).background(Color::from_rgb8(50, 20, 20)); // #141414        
 
-        let located_container = LocatedComponent::new(c, Location::zero());
+        let located_container = LocatedComponent::new(c);
 
         // Create a text component to place directly in the FreeBox
-        let text = Text::new("FreeBox Direct Text").color("#ffff00").size(32);
+        let text = Text::new("FreeBox Direct Text").color("#105010").size(52);
 
-        let located_text = LocatedComponent::new(
-            text,
-            located_container.location()
-                + Location::new(Coordinate::percentage(0.5), Coordinate::percentage(0.5)),
-        ); // Create the FreeBox and add components
+        let located_text =
+            LocatedComponent::new(text).set_location(Location::center(Anchor::Center)); // Create the FreeBox and add components
         let mut freebox = FreeBox::new(Size::tiktok())
             .with_child(located_container)
             .with_child(located_text);
