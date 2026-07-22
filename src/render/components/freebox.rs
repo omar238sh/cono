@@ -1,4 +1,4 @@
-use std::ops::{Add, Deref, DerefMut};
+use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 use crate::render::{error::RenderError, frame::Component, models::Size};
 use taffy::{NodeId, prelude::length};
@@ -19,6 +19,15 @@ pub enum Coordinate {
         target: Box<Coordinate>,
         shift: Box<Coordinate>,
     },
+    MRelative {
+        target: Box<Coordinate>,
+        shift: Box<Coordinate>,
+    },
+
+    Scaled {
+        this: Box<Coordinate>,
+        factor: f64,
+    },
 }
 
 impl Coordinate {
@@ -28,6 +37,13 @@ impl Coordinate {
 
     pub fn absolute(v: f64) -> Self {
         Self::Absolute(v)
+    }
+
+    pub fn scale(self, factor: f64) -> Self {
+        Self::Scaled {
+            this: Box::new(self),
+            factor,
+        }
     }
 
     pub fn to_absolute(&self, max_length: f64) -> Self {
@@ -47,6 +63,26 @@ impl Coordinate {
 
                 Coordinate::Absolute(v1 + v2)
             }
+            Coordinate::MRelative { target, shift } => {
+                let v1 = match target.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+
+                let v2 = match shift.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+
+                Coordinate::Absolute(v1 - v2)
+            }
+            Coordinate::Scaled { this, factor } => {
+                let v1 = match this.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+                Coordinate::Absolute(v1 * factor)
+            }
         }
     }
 
@@ -64,6 +100,17 @@ impl Add for Coordinate {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::Relative {
+            target: Box::new(self),
+            shift: Box::new(rhs),
+        }
+    }
+}
+
+impl Sub for Coordinate {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::MRelative {
             target: Box::new(self),
             shift: Box::new(rhs),
         }
@@ -93,6 +140,18 @@ impl Add for Location {
         Location {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+            anchor: Anchor::TopLeft,
+        }
+    }
+}
+
+impl Sub for Location {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Location {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
             anchor: Anchor::TopLeft,
         }
     }
@@ -141,6 +200,39 @@ impl DerefMut for LocatedComponent {
     }
 }
 
+impl Component for LocatedComponent {
+    fn render(&self, tree: &taffy::TaffyTree) -> Result<Scene, RenderError> {
+        self.child.render(tree)
+    }
+
+    fn size(&self) -> std::result::Result<Size, RenderError> {
+        self.child.size()
+    }
+
+    fn register_layout(&mut self, tree: &mut taffy::TaffyTree) -> Result<NodeId, RenderError> {
+        self.child.register_layout(tree)
+    }
+
+    fn layout(&self) -> Result<NodeId, RenderError> {
+        self.child.layout()
+    }
+
+    fn locate(self) -> LocatedComponent
+    where
+        Self: Sized + 'static,
+    {
+        self
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
 impl Location {
     pub fn new(x: Coordinate, y: Coordinate) -> Self {
         Self {
@@ -148,6 +240,12 @@ impl Location {
             y,
             anchor: Anchor::TopLeft,
         }
+    }
+
+    pub fn scale(mut self, factor: f64) -> Self {
+        self.x = self.x.scale(factor);
+        self.y = self.y.scale(factor);
+        self
     }
 
     pub fn zero() -> Self {
@@ -219,13 +317,13 @@ impl Component for FreeBox {
         let mut scene = Scene::new();
 
         for component in &self.contents {
-            let Location { x, y, .. } = &component.location.as_topleft(component.size());
+            let Location { x, y, .. } = &component.location.as_topleft(component.size()?);
 
             scene.append(
                 &component.render(tree)?,
                 Some(Affine::translate((
-                    x.to_num(self.size().width),
-                    y.to_num(self.size().height),
+                    x.to_num(self.size()?.width),
+                    y.to_num(self.size()?.height),
                 ))),
             );
         }
@@ -233,8 +331,8 @@ impl Component for FreeBox {
         Ok(scene)
     }
 
-    fn size(&self) -> Size {
-        self.size
+    fn size(&self) -> std::result::Result<Size, RenderError> {
+        Ok(self.size)
     }
 
     fn register_layout(
@@ -252,8 +350,8 @@ impl Component for FreeBox {
 
         let parent_style: taffy::Style = taffy::Style {
             size: taffy::Size {
-                width: length(self.size().width as f32),
-                height: length(self.size().height as f32),
+                width: length(self.size()?.width as f32),
+                height: length(self.size()?.height as f32),
             },
             ..Default::default()
         };
@@ -269,6 +367,14 @@ impl Component for FreeBox {
             Some(v) => Ok(v),
             None => Err(RenderError::NotComputed),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 
@@ -290,7 +396,6 @@ mod tests {
             error::RenderError,
             frame::Component,
             models::Size,
-            typst::{LuaWorld, pager::Pager},
         },
     };
     use taffy::TaffyTree;
@@ -301,7 +406,7 @@ mod tests {
 
         let logo_svg =
             String::from_utf8(Assets::get("cono_circle.svg").unwrap().data.to_vec()).unwrap();
-        let logo = SvgBox::new(logo_svg)?;
+        let logo = SvgBox::new(logo_svg)?.to_placeholder()?;
 
         let mut row = Row::new(Size::tiktok())
             .edit_arrangment(Arrangement::SpaceAround)
@@ -317,7 +422,7 @@ mod tests {
             row.push(column.clone());
         }
 
-        let c = Container::new(row).background(Color::from_rgb8(50, 20, 20)); // #141414        
+        let c = Container::new(row)?.set_background(Color::from_rgb8(50, 20, 20)); // #141414        
 
         let located_container = LocatedComponent::new(c);
 
@@ -337,8 +442,8 @@ mod tests {
         let mut renderer = SceneGpuRenderer::new()?;
         let image = renderer.render_to_image(
             &freebox.render(&tree)?,
-            freebox.size().width as u32,
-            freebox.size().height as u32,
+            freebox.size()?.width as u32,
+            freebox.size()?.height as u32,
         )?;
 
         image

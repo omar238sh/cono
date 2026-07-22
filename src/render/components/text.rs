@@ -228,10 +228,10 @@ impl Component for Text {
         }
     }
 
-    fn size(&self) -> crate::render::models::Size {
+    fn size(&self) -> std::result::Result<Size, RenderError> {
         match &self.cache {
             Some(v) => v.size(),
-            None => Size::new(200.0, 50.0), // won't happened
+            None => Err(RenderError::NotComputed), // won't happened
         }
     }
 
@@ -248,5 +248,13 @@ impl Component for Text {
             Some(v) => v.layout(),
             None => Err(RenderError::NotComputed),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

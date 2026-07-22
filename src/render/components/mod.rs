@@ -6,6 +6,7 @@ use crate::render::error::RenderError;
 pub mod column;
 pub mod container;
 pub mod freebox;
+pub mod placeholder;
 pub mod row;
 pub mod style;
 pub mod svg;

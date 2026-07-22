@@ -62,8 +62,8 @@ impl Component for Row {
         Ok(scene)
     }
 
-    fn size(&self) -> Size {
-        self.style.size()
+    fn size(&self) -> std::result::Result<Size, RenderError> {
+        Ok(self.style.size())
     }
 
     fn register_layout(
@@ -83,8 +83,8 @@ impl Component for Row {
             flex_direction: taffy::FlexDirection::Row,
 
             size: taffy::Size {
-                width: length(self.size().width as f32),
-                height: length(self.size().height as f32),
+                width: length(self.size()?.width as f32),
+                height: length(self.size()?.height as f32),
             },
             ..Default::default()
         };
@@ -127,6 +127,14 @@ impl Component for Row {
             Some(v) => Ok(v),
             None => Err(RenderError::NotComputed),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 
@@ -172,8 +180,8 @@ mod tests {
 
         let image = renderer.render_to_image(
             &row.render(&tree)?,
-            row.size().width as u32,
-            row.size().height as u32,
+            row.size()?.width as u32,
+            row.size()?.height as u32,
         )?;
 
         image
@@ -203,9 +211,9 @@ mod tests {
         .into_iter()
         .map(|a| {
             let svg = a.scale(3.0);
-            let c = Container::new(svg)
-                .padding(Padding::new(5.0))
-                .background(Color::from_rgba8(150, 255, 100, 100))
+            let c = Container::new(svg)?
+                .set_padding(Padding::new(5.0))
+                .set_background(Color::from_rgba8(150, 255, 100, 100))
                 .border_radius(10.0);
             Ok(c)
         })
@@ -243,8 +251,8 @@ mod tests {
 
         let image = renderer.render_to_image(
             &column.render(&tree)?,
-            column.size().width as u32,
-            column.size().height as u32,
+            column.size()?.width as u32,
+            column.size()?.height as u32,
         )?;
 
         image

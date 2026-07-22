@@ -32,9 +32,9 @@ impl<C: Component> Deref for Container<C> {
 }
 
 impl<C: Component> Container<C> {
-    pub fn new(content: C) -> Self {
-        let size = content.size();
-        Self {
+    pub fn new(content: C) -> Result<Self, RenderError> {
+        let size = content.size()?;
+        Ok(Self {
             id: None,
             child: content,
             size: size,
@@ -43,10 +43,10 @@ impl<C: Component> Container<C> {
             border_width: 0f64,
             border_radius: 0f64,
             padding: Padding::new(0f64),
-        }
+        })
     }
 
-    pub fn background(mut self, color: Color) -> Self {
+    pub fn set_background(mut self, color: Color) -> Self {
         self.background_color = Some(color);
         self
     }
@@ -66,7 +66,7 @@ impl<C: Component> Container<C> {
         self
     }
 
-    pub fn padding(mut self, padding: Padding) -> Self {
+    pub fn set_padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
         self
     }
@@ -113,8 +113,8 @@ impl<C: Component + Clone + 'static> Component for Container<C> {
         Ok(scene)
     }
 
-    fn size(&self) -> crate::render::models::Size {
-        self.size
+    fn size(&self) -> std::result::Result<Size, RenderError> {
+        Ok(self.size)
     }
 
     fn register_layout(
@@ -126,8 +126,8 @@ impl<C: Component + Clone + 'static> Component for Container<C> {
         }
         let style = taffy::Style {
             size: taffy::Size {
-                width: length(self.size().width as f32),
-                height: length(self.size().height as f32),
+                width: length(self.size()?.width as f32),
+                height: length(self.size()?.height as f32),
             },
             display: taffy::Display::Flex,
             align_items: Some(taffy::AlignItems::CENTER),
@@ -149,6 +149,14 @@ impl<C: Component + Clone + 'static> Component for Container<C> {
             Some(v) => return Ok(v),
             None => return Err(crate::render::error::RenderError::NotComputed),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 #[cfg(test)]
@@ -181,15 +189,15 @@ mod tests {
             row.push(t.scale(4.0));
         }
         row.push(logo);
-        let mut container = Container::new(row).background(Color::from_rgb8(48, 25, 52));
+        let mut container = Container::new(row)?.set_background(Color::from_rgb8(48, 25, 52));
 
         container.register_layout(&mut tree)?;
         let mut renderer = SceneGpuRenderer::new()?;
 
         let image = renderer.render_to_image(
             &container.render(&tree)?,
-            container.size().width as u32,
-            container.size().height as u32,
+            container.size()?.width as u32,
+            container.size()?.height as u32,
         )?;
 
         image

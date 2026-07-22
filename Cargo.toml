@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 chrono = "0.4.45"
+ffmpeg-next = "8.1.0"
 image = "0.25.9"
 
 mlua-extras = { version = "11.6.2" , features = ["luau-jit", "macros"]} 

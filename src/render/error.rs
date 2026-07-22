@@ -16,4 +16,10 @@ pub enum RenderError {
     TypstError(String),
     #[error("Compiler access error")]
     TypstCompilerError,
+    #[error("Reach the last frame")]
+    FrameOverFlow,
+    #[error("FPS dismatch")]
+    FpsDismatch,
+    #[error("Cannot init ffmpef")]
+    FfmpegError,
 }

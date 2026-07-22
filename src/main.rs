@@ -1,3 +1,5 @@
+use vello::peniko::color::LinearSrgb;
+
 use crate::render::typst::{LuaWorld, pager::Pager};
 
 mod assets;

@@ -62,8 +62,8 @@ impl Component for Column {
         Ok(scene)
     }
 
-    fn size(&self) -> Size {
-        self.style.size()
+    fn size(&self) -> std::result::Result<Size, RenderError> {
+        Ok(self.style.size())
     }
 
     fn register_layout(
@@ -83,8 +83,8 @@ impl Component for Column {
             flex_direction: taffy::FlexDirection::Column,
 
             size: taffy::Size {
-                width: length(self.size().width as f32),
-                height: length(self.size().height as f32),
+                width: length(self.size()?.width as f32),
+                height: length(self.size()?.height as f32),
             },
             ..Default::default()
         };
@@ -128,6 +128,14 @@ impl Component for Column {
             None => Err(RenderError::NotComputed),
         }
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]
@@ -156,8 +164,8 @@ mod tests {
 
         let image = renderer.render_to_image(
             &column.render(&tree)?,
-            column.size().width as u32,
-            column.size().height as u32,
+            column.size()?.width as u32,
+            column.size()?.height as u32,
         )?;
 
         image

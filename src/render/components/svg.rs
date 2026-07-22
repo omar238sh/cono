@@ -22,8 +22,8 @@ impl Component for SvgBox {
         Ok(self.scene.clone())
     }
 
-    fn size(&self) -> Size {
-        self.size.clone()
+    fn size(&self) -> std::result::Result<Size, RenderError> {
+        Ok(self.size.clone())
     }
 
     fn register_layout(
@@ -51,6 +51,14 @@ impl Component for SvgBox {
             Some(v) => Ok(v),
             None => Err(RenderError::NotComputed),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 
@@ -134,7 +142,7 @@ mod cvg_test {
         for (index, svg) in content.into_iter().enumerate() {
             let mysvg_box = svg;
             let p = mysvg_box.render(&tree)?;
-            let size = mysvg_box.size();
+            let size = mysvg_box.size()?;
             let start_time = Instant::now();
             let image = renderer.render_to_image(&p, size.width as u32, size.height as u32)?;
             let end = start_time.elapsed();
