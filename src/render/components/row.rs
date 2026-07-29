@@ -28,19 +28,31 @@ impl Row {
         self.contents.push(Box::new(component));
     }
 
-    pub fn edit_arrangment(mut self, arrangement: Arrangement) -> Self {
+    pub fn arrangment(mut self, arrangement: Arrangement) -> Self {
         *self.style.arrangement_mut() = arrangement;
         self
     }
 
-    pub fn edit_alignment(mut self, alignment: Alignment) -> Self {
+    pub fn alignment(mut self, alignment: Alignment) -> Self {
         *self.style.alignment_mut() = alignment;
         self
     }
 
-    pub fn edit_padding(mut self, padding: Padding) -> Self {
+    pub fn padding(mut self, padding: Padding) -> Self {
         *self.style.padding_mut() = padding;
         self
+    }
+
+    pub fn set_arrangment(&mut self, arrangement: Arrangement) {
+        *self.style.arrangement_mut() = arrangement;
+    }
+
+    pub fn set_alignment(&mut self, alignment: Alignment) {
+        *self.style.alignment_mut() = alignment;
+    }
+
+    pub fn set_padding(&mut self, padding: Padding) {
+        *self.style.padding_mut() = padding;
     }
 }
 
@@ -158,8 +170,8 @@ mod tests {
     fn test_row() -> Result<(), RenderError> {
         let mut tree = TaffyTree::new();
         let mut row = Row::new(Size::x_landscape())
-            .edit_arrangment(super::Arrangement::SpaceAround)
-            .edit_alignment(crate::render::components::style::Alignment::Center);
+            .arrangment(super::Arrangement::SpaceAround)
+            .alignment(crate::render::components::style::Alignment::Center);
 
         let world = LuaWorld::new(Pager::new().add("Hello Row").add("مرحبا").add("عمر يفعلها"))
             .to_svgs()
@@ -195,8 +207,8 @@ mod tests {
     fn test_row_column_compose() -> Result<(), RenderError> {
         let mut tree = TaffyTree::new();
         let mut column = Column::new(Size::tiktok())
-            .edit_arrangment(super::Arrangement::SpaceEvenly)
-            .edit_alignment(crate::render::components::style::Alignment::Center);
+            .arrangment(super::Arrangement::SpaceEvenly)
+            .alignment(crate::render::components::style::Alignment::Center);
 
         let svgs = LuaWorld::new(
             Pager::new()
@@ -212,8 +224,8 @@ mod tests {
         .map(|a| {
             let svg = a.scale(3.0);
             let c = Container::new(svg)?
-                .set_padding(Padding::new(5.0))
-                .set_background(Color::from_rgba8(150, 255, 100, 100))
+                .padding(Padding::new(5.0))
+                .background(Color::from_rgba8(150, 255, 100, 100))
                 .border_radius(10.0);
             Ok(c)
         })
@@ -230,8 +242,8 @@ mod tests {
         }
 
         let mut row = Row::new(Size::new(900.0, 300.0))
-            .edit_arrangment(super::Arrangement::SpaceAround)
-            .edit_alignment(crate::render::components::style::Alignment::Center);
+            .arrangment(super::Arrangement::SpaceAround)
+            .alignment(crate::render::components::style::Alignment::Center);
 
         if let Some(item) = iter.next() {
             row.push(item);

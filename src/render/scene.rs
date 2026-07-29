@@ -1,9 +1,23 @@
 use std::path::Path;
 
-use crate::render::{animation::FpsTarget, error::RenderError, frame::Frame};
+use taffy::TaffyTree;
+use vello::Scene as VelloScene;
+
+use crate::render::{
+    animation::FpsTarget,
+    components::SceneGpuRenderer,
+    error::RenderError,
+    frame::{Component, Frame},
+    models::Size,
+};
+
+pub struct RenderedFrame {
+    pub scene: VelloScene,
+    pub size: Size,
+}
 
 pub struct Scene {
-    frames: Vec<Frame>,
+    frames: Vec<RenderedFrame>,
     fps: FpsTarget,
 }
 
@@ -15,8 +29,17 @@ impl Scene {
         }
     }
 
-    pub fn push_frame(&mut self, frame: Frame) {
-        self.frames.push(frame);
+    pub fn set_fps(&mut self, fps: FpsTarget) {
+        self.fps = fps;
+    }
+
+    pub fn push_frame(&mut self, mut frame: Frame) -> Result<(), RenderError> {
+        let mut tree = TaffyTree::new();
+        frame.content.register_layout(&mut tree)?;
+        let scene = frame.content.render(&tree)?;
+        let size = frame.content.size()?;
+        self.frames.push(RenderedFrame { scene, size });
+        Ok(())
     }
 
     pub fn append(&mut self, mut scene: Scene) -> Result<(), RenderError> {
@@ -35,12 +58,8 @@ impl Scene {
         }
 
         // Determine even dimensions based on the first frame
-        let mut first_frame = Frame {
-            content: self.frames[0].content.clone(),
-        };
-        let first_image = first_frame.to_image()?;
-        let width = first_image.width() / 2 * 2;
-        let height = first_image.height() / 2 * 2;
+        let width = (self.frames[0].size.width as u32) / 2 * 2;
+        let height = (self.frames[0].size.height as u32) / 2 * 2;
 
         let mut octx = ffmpeg_next::format::output(path)
             .map_err(|e| RenderError::CustomError(format!("Cannot open output file: {}", e)))?;
@@ -74,16 +93,18 @@ impl Scene {
             .open()
             .map_err(|e| RenderError::CustomError(format!("Cannot open encoder: {}", e)))?;
 
-        let (ost_index, ost_time_base) = {
+        let ost_index = {
             let mut ost = octx
                 .add_stream(codec)
                 .map_err(|e| RenderError::CustomError(format!("Cannot add video stream: {}", e)))?;
             ost.set_parameters(&opened_encoder);
-            (ost.index(), ost.time_base())
+            ost.index()
         };
 
         octx.write_header()
             .map_err(|e| RenderError::CustomError(format!("Cannot write header: {}", e)))?;
+
+        let ost_time_base = octx.stream(ost_index).unwrap().time_base();
 
         let mut scaler = ffmpeg_next::software::scaling::Context::get(
             ffmpeg_next::format::Pixel::RGBA,
@@ -96,11 +117,10 @@ impl Scene {
         )
         .map_err(|e| RenderError::CustomError(format!("Cannot create scaler: {}", e)))?;
 
-        for (i, frame) in self.frames.iter().enumerate() {
-            let mut frame_clone = Frame {
-                content: frame.content.clone(),
-            };
-            let image = frame_clone.to_image()?;
+        let mut gpu_renderer = SceneGpuRenderer::new()?;
+
+        for (i, rendered_frame) in self.frames.iter().enumerate() {
+            let image = gpu_renderer.render_to_image(&rendered_frame.scene, width, height)?;
 
             // Load RGBA into input frame
             let mut src_frame =
@@ -158,6 +178,58 @@ impl Scene {
         octx.write_trailer()
             .map_err(|e| RenderError::CustomError(format!("Cannot write trailer: {}", e)))?;
 
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    use crate::render::{
+        components::{
+            freebox::{Coordinate, LocatedComponent, Location},
+            text::Text,
+        },
+        error::RenderError,
+        frame::{Component, Frame},
+        models::Size,
+    };
+
+    #[test]
+    fn test_render_video_with_located_component_placeholder() -> Result<(), RenderError> {
+        let text = Text::new("Moving Text").size(48).color("#122422");
+        let located = LocatedComponent::new(text).location(Location::new(
+            Coordinate::absolute(100.0),
+            Coordinate::absolute(100.0),
+        ));
+        let placeholder = located.to_placeholder()?;
+        let controller = placeholder.pointer();
+
+        let mut scene = Scene::new();
+
+        for i in 0..30 {
+            let frame = Frame::new(Size::youtube_shorts()).add(placeholder.clone());
+            scene.push_frame(frame)?;
+
+            // Edit position of LocatedComponent using placeholder pointer
+            controller.with_mut(|lc| {
+                lc.set_location(Location::new(
+                    Coordinate::absolute(100.0 + (i as f64 * 10.0)),
+                    Coordinate::absolute(100.0 + (i as f64 * 15.0)),
+                ));
+            })?;
+        }
+
+        let output_dir = Path::new("./tests");
+        if !output_dir.exists() {
+            std::fs::create_dir_all(output_dir).ok();
+        }
+        let output_path = output_dir.join("test_located_component.mp4");
+        scene.render(&output_path)?;
+
+        assert!(output_path.exists());
         Ok(())
     }
 }

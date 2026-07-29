@@ -203,6 +203,26 @@ impl Text {
         self
     }
 
+    pub fn set_color(&mut self, color: impl Into<String>) {
+        self.color = Some(color.into());
+        self.cache = None;
+    }
+    pub fn set_font(&mut self, font: impl Into<String>) {
+        self.font = Some(font.into());
+        self.cache = None;
+    }
+    pub fn set_size(&mut self, size: u32) {
+        self.size = Some(size);
+        self.cache = None;
+    }
+    pub fn set_weight(&mut self, weight: Weight) {
+        self.weight = Some(weight);
+        self.cache = None;
+    }
+    pub fn set_italic(&mut self) {
+        self.style = Some(FontStyle::Italic);
+        self.cache = None;
+    }
     fn compile(&mut self) -> Result<(), RenderError> {
         let mut world = COMPILER
             .lock()

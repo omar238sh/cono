@@ -46,7 +46,7 @@ impl<C: Component> Container<C> {
         })
     }
 
-    pub fn set_background(mut self, color: Color) -> Self {
+    pub fn background(mut self, color: Color) -> Self {
         self.background_color = Some(color);
         self
     }
@@ -66,14 +66,38 @@ impl<C: Component> Container<C> {
         self
     }
 
-    pub fn set_padding(mut self, padding: Padding) -> Self {
+    pub fn padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
         self
     }
 
-    pub fn edit_size(mut self, size: Size) -> Self {
+    pub fn with_size(mut self, size: Size) -> Self {
         self.size = size;
         self
+    }
+
+    pub fn set_background(&mut self, color: Color) {
+        self.background_color = Some(color);
+    }
+
+    pub fn set_border_color(&mut self, color: Color) {
+        self.border_color = Some(color);
+    }
+
+    pub fn set_border_width(&mut self, width: f64) {
+        self.border_width = width;
+    }
+
+    pub fn set_border_radius(&mut self, radius: f64) {
+        self.border_radius = radius;
+    }
+
+    pub fn set_padding(&mut self, padding: Padding) {
+        self.padding = padding;
+    }
+
+    pub fn set_size(&mut self, size: Size) {
+        self.size = size;
     }
 }
 
@@ -179,8 +203,8 @@ mod tests {
     fn test_row_2() -> Result<(), RenderError> {
         let mut tree = TaffyTree::new();
         let mut row = Row::new(Size::x_landscape())
-            .edit_arrangment(Arrangement::SpaceAround)
-            .edit_alignment(crate::render::components::style::Alignment::Center);
+            .arrangment(Arrangement::SpaceAround)
+            .alignment(crate::render::components::style::Alignment::Center);
         let logo_svg = String::from_utf8(Assets::get("logo.svg").unwrap().data.to_vec()).unwrap();
         let text = LuaWorld::new(Pager::new().add("Cono")).to_svgs().unwrap();
         let logo = SvgBox::new(logo_svg)?.scale(2.0);
@@ -189,7 +213,7 @@ mod tests {
             row.push(t.scale(4.0));
         }
         row.push(logo);
-        let mut container = Container::new(row)?.set_background(Color::from_rgb8(48, 25, 52));
+        let mut container = Container::new(row)?.background(Color::from_rgb8(48, 25, 52));
 
         container.register_layout(&mut tree)?;
         let mut renderer = SceneGpuRenderer::new()?;

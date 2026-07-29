@@ -28,19 +28,31 @@ impl Column {
         self.contents.push(Box::new(component));
     }
 
-    pub fn edit_arrangment(mut self, arrangement: Arrangement) -> Self {
+    pub fn arrangment(mut self, arrangement: Arrangement) -> Self {
         *self.style.arrangement_mut() = arrangement;
         self
     }
 
-    pub fn edit_alignment(mut self, alignment: Alignment) -> Self {
+    pub fn alignment(mut self, alignment: Alignment) -> Self {
         *self.style.alignment_mut() = alignment;
         self
     }
 
-    pub fn edit_padding(mut self, padding: Padding) -> Self {
+    pub fn padding(mut self, padding: Padding) -> Self {
         *self.style.padding_mut() = padding;
         self
+    }
+
+    pub fn set_arrangment(&mut self, arrangement: Arrangement) {
+        *self.style.arrangement_mut() = arrangement;
+    }
+
+    pub fn set_alignment(&mut self, alignment: Alignment) {
+        *self.style.alignment_mut() = alignment;
+    }
+
+    pub fn set_padding(&mut self, padding: Padding) {
+        *self.style.padding_mut() = padding;
     }
 }
 
@@ -154,8 +166,8 @@ mod tests {
     fn test_column() -> Result<(), RenderError> {
         let mut tree = TaffyTree::new();
         let mut column = Column::new(Size::tiktok())
-            .edit_arrangment(super::Arrangement::SpaceAround)
-            .edit_alignment(crate::render::components::style::Alignment::Center);
+            .arrangment(super::Arrangement::SpaceAround)
+            .alignment(crate::render::components::style::Alignment::Center);
 
         column.push(Text::new("Hello").color("#87d5fe"));
         column.register_layout(&mut tree)?;

@@ -171,18 +171,30 @@ impl LocatedComponent {
         }
     }
 
-    pub fn location(&self) -> Location {
+    pub fn get_location(&self) -> Location {
         self.location.clone()
     }
 
-    pub fn set_location(mut self, location: Location) -> Self {
+    pub fn location(mut self, location: Location) -> Self {
         self.location = location;
         self
     }
 
-    pub fn set_anchor(mut self, anchor: Anchor) -> Self {
+    pub fn anchor(mut self, anchor: Anchor) -> Self {
         self.location.anchor = anchor;
         self
+    }
+
+    pub fn set_location(&mut self, location: Location) {
+        self.location = location;
+    }
+
+    pub fn set_anchor(&mut self, anchor: Anchor) {
+        self.location.anchor = anchor;
+    }
+
+    pub fn shift(&mut self, shift: Location) {
+        self.location = self.location.clone() + shift;
     }
 }
 
@@ -202,7 +214,21 @@ impl DerefMut for LocatedComponent {
 
 impl Component for LocatedComponent {
     fn render(&self, tree: &taffy::TaffyTree) -> Result<Scene, RenderError> {
-        self.child.render(tree)
+        let mut scene = Scene::new();
+        let Location { x, y, .. } = self.location.as_topleft(self.size()?);
+
+        let child_scene = self.child.render(tree)?;
+        let child_size = self.size()?;
+
+        scene.append(
+            &child_scene,
+            Some(Affine::translate((
+                x.to_num(child_size.width),
+                y.to_num(child_size.height),
+            ))),
+        );
+
+        Ok(scene)
     }
 
     fn size(&self) -> std::result::Result<Size, RenderError> {
@@ -317,15 +343,7 @@ impl Component for FreeBox {
         let mut scene = Scene::new();
 
         for component in &self.contents {
-            let Location { x, y, .. } = &component.location.as_topleft(component.size()?);
-
-            scene.append(
-                &component.render(tree)?,
-                Some(Affine::translate((
-                    x.to_num(self.size()?.width),
-                    y.to_num(self.size()?.height),
-                ))),
-            );
+            scene.append(&component.render(tree)?, None);
         }
 
         Ok(scene)
@@ -407,13 +425,15 @@ mod tests {
         let logo_svg =
             String::from_utf8(Assets::get("cono_circle.svg").unwrap().data.to_vec()).unwrap();
         let logo = SvgBox::new(logo_svg)?.to_placeholder()?;
-
+        logo.pointer().with_mut(|a| {
+            a.set_scale(4f64);
+        })?;
         let mut row = Row::new(Size::tiktok())
-            .edit_arrangment(Arrangement::SpaceAround)
-            .edit_alignment(Alignment::Center);
+            .arrangment(Arrangement::SpaceAround)
+            .alignment(Alignment::Center);
         let mut column = Column::new(Size::tiktok())
-            .edit_arrangment(Arrangement::SpaceAround)
-            .edit_alignment(Alignment::Center);
+            .arrangment(Arrangement::SpaceAround)
+            .alignment(Alignment::Center);
         for _ in 1..8 {
             column.push(logo.clone());
         }
@@ -422,15 +442,14 @@ mod tests {
             row.push(column.clone());
         }
 
-        let c = Container::new(row)?.set_background(Color::from_rgb8(50, 20, 20)); // #141414        
+        let c = Container::new(row)?.background(Color::from_rgb8(50, 20, 20)); // #141414        
 
         let located_container = LocatedComponent::new(c);
 
         // Create a text component to place directly in the FreeBox
         let text = Text::new("FreeBox Direct Text").color("#105010").size(52);
 
-        let located_text =
-            LocatedComponent::new(text).set_location(Location::center(Anchor::Center)); // Create the FreeBox and add components
+        let located_text = LocatedComponent::new(text).location(Location::center(Anchor::Center)); // Create the FreeBox and add components
         let mut freebox = FreeBox::new(Size::tiktok())
             .with_child(located_container)
             .with_child(located_text);

@@ -1,8 +1,6 @@
-use std::ops::Deref;
-
-use taffy::{NodeId, Point, Style, TaffyTree, prelude::length};
+use taffy::{NodeId, Style, TaffyTree, prelude::length};
 use vello::{Scene, kurbo::Affine};
-use vello_svg::{self as vsvg, usvg::Tree};
+use vello_svg::{self as vsvg};
 
 use crate::render::{
     components::style::Padding, error::RenderError, frame::Component, models::Size,
@@ -84,7 +82,7 @@ impl SvgBox {
         self
     }
 
-    pub fn edit_size(mut self, new_size: Size) -> Self {
+    pub fn with_size(mut self, new_size: Size) -> Self {
         let mut new_scene = Scene::new();
         let height_factor = new_size.height / self.size.height;
         let width_factor = new_size.width / self.size.width;
@@ -106,6 +104,17 @@ impl SvgBox {
         self.scene = new_scene;
         self.size = Size::new(self.size.width * factor, self.size.height * factor);
         self
+    }
+
+    pub fn set_scale(&mut self, factor: f64) {
+        let mut new_scene = Scene::new();
+        new_scene.append(&self.scene, Some(Affine::scale(factor)));
+        self.scene = new_scene;
+        self.size = Size::new(self.size.width * factor, self.size.height * factor);
+    }
+
+    pub fn set_padding(mut self, padding: Padding) {
+        self.padding = padding;
     }
 }
 

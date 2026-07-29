@@ -14,15 +14,15 @@ use crate::render::{
 };
 
 #[derive(Debug)]
-pub struct PlaceHolder<C: Clone + 'static> {
+pub struct PlaceHolder<C: 'static> {
     pointer: ElementPointer<C>,
 }
 
-impl<C: Clone + Component + 'static> Clone for PlaceHolder<C> {
+impl<C: Component + 'static> Clone for PlaceHolder<C> {
     fn clone(&self) -> Self {
-        let element = self.pointer.with(|e| e.clone()).unwrap();
-        let a = PlaceHolder::from(element).unwrap();
-        a
+        Self {
+            pointer: self.pointer,
+        }
     }
 }
 
@@ -86,13 +86,13 @@ pub struct ElementPointer<T> {
     _type: PhantomData<T>,
 }
 
-impl<T: 'static> Clone for ElementPointer<T> {
+impl<T> Clone for ElementPointer<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: 'static> Copy for ElementPointer<T> {}
+impl<T> Copy for ElementPointer<T> {}
 
 impl<T: 'static> ElementPointer<T> {
     pub fn new(id: ElementId) -> Self {
@@ -100,6 +100,19 @@ impl<T: 'static> ElementPointer<T> {
             id: id,
             _type: PhantomData::default(),
         }
+    }
+
+    pub fn drop_component(&self) {
+        let mut register_guard = GLOBAL_REGISTER
+            .lock()
+            .map_err(|_| {
+                RenderError::CustomError(
+                    "Lock Error : You Cannot Do any thing about this".to_string(),
+                )
+            })
+            .unwrap(); // if it panic it's a bug
+
+        register_guard.remove(&self.id);
     }
 
     pub fn with<R, F>(&self, f: F) -> Result<R, RenderError>
@@ -184,6 +197,10 @@ pub mod RegisterMod {
             self.contents.get_mut(&id).ok_or(RenderError::CustomError(
                 "Cannot Find Component in Register".to_string(),
             ))
+        }
+
+        pub fn remove(&mut self, id: &ElementId) {
+            self.contents.remove(&id).unwrap();
         }
     }
 }
