@@ -1,4 +1,7 @@
 pub mod animengin;
+pub mod model;
+
+pub use model::{Easing, Model};
 
 #[derive(Debug, PartialEq)]
 pub enum FpsTarget {

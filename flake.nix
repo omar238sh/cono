@@ -45,18 +45,24 @@
           pkgs.vulkan-loader
           pkgs.mesa
           pkgs.antigravity-cli
-          pkgs.ffmpeg.lib
+          pkgs.ffmpeg
           pkgs.clang
           pkgs.libclang
         ];
-
         shellHook = ''
-          export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.vulkan-loader pkgs.ffmpeg]}:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
+            pkgs.stdenv.cc.cc.lib
+            pkgs.vulkan-loader
+            pkgs.ffmpeg
+          ]}:$LD_LIBRARY_PATH"
+  
           export VK_ICD_FILENAMES="${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.x86_64.json"
           export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+  
           echo "🚀 Rust development environment ready!"
           echo "Nixpkgs: ${pkgs.lib.version}"
         '';
-      };
+        
+        };
     };
 }

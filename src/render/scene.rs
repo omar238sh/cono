@@ -29,8 +29,26 @@ impl Scene {
         }
     }
 
+    pub fn fps(&self) -> FpsTarget {
+        match &self.fps {
+            FpsTarget::F30 => FpsTarget::F30,
+            FpsTarget::F45 => FpsTarget::F45,
+            FpsTarget::F60 => FpsTarget::F60,
+            FpsTarget::F120 => FpsTarget::F120,
+            FpsTarget::Custom(v) => FpsTarget::Custom(*v),
+        }
+    }
+
     pub fn set_fps(&mut self, fps: FpsTarget) {
         self.fps = fps;
+    }
+
+    pub fn frames(&self) -> &[RenderedFrame] {
+        &self.frames
+    }
+
+    pub fn frames_count(&self) -> usize {
+        self.frames.len()
     }
 
     pub fn push_frame(&mut self, mut frame: Frame) -> Result<(), RenderError> {
@@ -199,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_render_video_with_located_component_placeholder() -> Result<(), RenderError> {
-        let text = Text::new("Moving Text").size(48).color("#122422");
+        let text = Text::new("Moving Text").size(48).color("#ffffff");
         let located = LocatedComponent::new(text).location(Location::new(
             Coordinate::absolute(100.0),
             Coordinate::absolute(100.0),
@@ -208,16 +226,17 @@ mod tests {
         let controller = placeholder.pointer();
 
         let mut scene = Scene::new();
+        scene.set_fps(FpsTarget::Custom(120));
 
-        for i in 0..30 {
+        for i in 0..120 {
             let frame = Frame::new(Size::youtube_shorts()).add(placeholder.clone());
             scene.push_frame(frame)?;
 
             // Edit position of LocatedComponent using placeholder pointer
             controller.with_mut(|lc| {
-                lc.set_location(Location::new(
-                    Coordinate::absolute(100.0 + (i as f64 * 10.0)),
-                    Coordinate::absolute(100.0 + (i as f64 * 15.0)),
+                lc.shift(Location::new(
+                    Coordinate::absolute(i as f64 * 5.0),
+                    Coordinate::absolute(i as f64 * 5.0),
                 ));
             })?;
         }

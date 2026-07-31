@@ -1,6 +1,11 @@
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use std::{
+    any::Any,
+    ops::{Add, Deref, DerefMut, Mul, Sub},
+};
 
-use crate::render::{error::RenderError, frame::Component, models::Size};
+use crate::render::{
+    components::placeholder::PlaceHolder, error::RenderError, frame::Component, models::Size,
+};
 use taffy::{NodeId, prelude::length};
 use vello::{Scene, kurbo::Affine};
 
@@ -28,6 +33,11 @@ pub enum Coordinate {
         this: Box<Coordinate>,
         factor: f64,
     },
+    WithProgress {
+        start: Box<Coordinate>,
+        end: Box<Coordinate>,
+        progress: f64,
+    },
 }
 
 impl Coordinate {
@@ -39,10 +49,22 @@ impl Coordinate {
         Self::Absolute(v)
     }
 
+    pub fn zero() -> Self {
+        Self::Absolute(0.0)
+    }
+
     pub fn scale(self, factor: f64) -> Self {
         Self::Scaled {
             this: Box::new(self),
             factor,
+        }
+    }
+
+    pub fn with_progress(start: Self, end: Self) -> Self {
+        Self::WithProgress {
+            start: Box::new(start),
+            end: Box::new(end),
+            progress: 0.0,
         }
     }
 
@@ -82,6 +104,23 @@ impl Coordinate {
                     _ => unreachable!(),
                 };
                 Coordinate::Absolute(v1 * factor)
+            }
+            Coordinate::WithProgress {
+                start,
+                end,
+                progress,
+            } => {
+                let base = match start.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+
+                let target = match end.to_absolute(max_length) {
+                    Coordinate::Absolute(v) => v,
+                    _ => unreachable!(),
+                };
+
+                Self::Absolute(base + progress * target)
             }
         }
     }
@@ -140,7 +179,7 @@ impl Add for Location {
         Location {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
-            anchor: Anchor::TopLeft,
+            anchor: self.anchor,
         }
     }
 }
@@ -214,21 +253,9 @@ impl DerefMut for LocatedComponent {
 
 impl Component for LocatedComponent {
     fn render(&self, tree: &taffy::TaffyTree) -> Result<Scene, RenderError> {
-        let mut scene = Scene::new();
-        let Location { x, y, .. } = self.location.as_topleft(self.size()?);
-
         let child_scene = self.child.render(tree)?;
-        let child_size = self.size()?;
 
-        scene.append(
-            &child_scene,
-            Some(Affine::translate((
-                x.to_num(child_size.width),
-                y.to_num(child_size.height),
-            ))),
-        );
-
-        Ok(scene)
+        Ok(child_scene)
     }
 
     fn size(&self) -> std::result::Result<Size, RenderError> {
@@ -318,6 +345,32 @@ impl Location {
             anchor: Anchor::TopLeft,
         }
     }
+
+    pub fn set_progress(&mut self, new_progrss: f64) -> Result<(), RenderError> {
+        match &mut self.x {
+            Coordinate::WithProgress { progress, .. } => {
+                *progress = new_progrss;
+            }
+            _ => {
+                return Err(RenderError::CustomError(
+                    "Dosen't accept progress".to_string(),
+                ));
+            }
+        }
+
+        match &mut self.y {
+            Coordinate::WithProgress { progress, .. } => {
+                *progress = new_progrss;
+            }
+            _ => {
+                return Err(RenderError::CustomError(
+                    "Dosen't accept progress".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl FreeBox {
@@ -333,6 +386,10 @@ impl FreeBox {
         self.contents.push(child);
         self
     }
+
+    pub fn add(&mut self, child: impl Component) {
+        self.contents.push(child.locate());
+    }
 }
 
 impl Component for FreeBox {
@@ -343,7 +400,15 @@ impl Component for FreeBox {
         let mut scene = Scene::new();
 
         for component in &self.contents {
-            scene.append(&component.render(tree)?, None);
+            let child_size = component.size()?;
+            let Location { x, y, .. } = component.location.as_topleft(child_size);
+            scene.append(
+                &component.render(tree)?,
+                Some(Affine::translate((
+                    x.to_num(self.size.width),
+                    y.to_num(self.size.height),
+                ))),
+            );
         }
 
         Ok(scene)

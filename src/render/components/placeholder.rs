@@ -1,5 +1,6 @@
 use std::{
     marker::PhantomData,
+    ops::Deref,
     sync::{
         LazyLock, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -9,13 +10,15 @@ use std::{
 use taffy::NodeId;
 
 use crate::render::{
-    components::placeholder::RegisterMod::Register, error::RenderError, frame::Component,
+    components::{freebox::LocatedComponent, placeholder::RegisterMod::Register},
+    error::RenderError,
+    frame::Component,
     models::Size,
 };
 
 #[derive(Debug)]
 pub struct PlaceHolder<C: 'static> {
-    pointer: ElementPointer<C>,
+    pub pointer: ElementPointer<C>,
 }
 
 impl<C: Component + 'static> Clone for PlaceHolder<C> {
@@ -77,6 +80,34 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn locate(self) -> LocatedComponent
+    where
+        Self: Sized + 'static,
+    {
+        let register_guard = GLOBAL_REGISTER
+            .lock()
+            .map_err(|_| {
+                RenderError::CustomError(
+                    "Lock Error : You Cannot Do any thing about this".to_string(),
+                )
+            })
+            .unwrap();
+
+        let real_component = register_guard
+            .get(&self.pointer.id)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<LocatedComponent>();
+
+        match real_component {
+            Some(v) => LocatedComponent {
+                child: Box::new(self),
+                location: v.location.clone(),
+            },
+            None => LocatedComponent::new(self),
+        }
     }
 }
 
