@@ -6,7 +6,7 @@ use taffy::{NodeId, TaffyTree};
 use vello::Scene;
 
 use crate::render::components::SceneGpuRenderer;
-use crate::render::components::freebox::{FreeBox, LocatedComponent};
+use crate::render::components::freebox::{FreeBox, LocatedComponent, Location};
 use crate::render::components::placeholder::{ElementPointer, PlaceHolder};
 use crate::render::error::RenderError;
 use crate::render::models::Size;
@@ -58,6 +58,10 @@ pub trait Component: ComponentClone + Send + 'static {
 
     fn register_layout(&mut self, tree: &mut TaffyTree) -> Result<NodeId, RenderError>;
     fn layout(&self) -> Result<NodeId, RenderError>;
+
+    fn get_location(&self) -> Option<Location> {
+        None
+    }
 
     fn locate(self) -> LocatedComponent
     where

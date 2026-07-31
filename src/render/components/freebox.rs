@@ -210,8 +210,18 @@ impl LocatedComponent {
         }
     }
 
+    pub fn sync_location(&mut self) {
+        if let Some(loc) = self.child.get_location() {
+            self.location = loc;
+        }
+    }
+
     pub fn get_location(&self) -> Location {
-        self.location.clone()
+        if let Some(loc) = self.child.get_location() {
+            loc
+        } else {
+            self.location.clone()
+        }
     }
 
     pub fn location(mut self, location: Location) -> Self {
@@ -263,11 +273,16 @@ impl Component for LocatedComponent {
     }
 
     fn register_layout(&mut self, tree: &mut taffy::TaffyTree) -> Result<NodeId, RenderError> {
+        self.sync_location();
         self.child.register_layout(tree)
     }
 
     fn layout(&self) -> Result<NodeId, RenderError> {
         self.child.layout()
+    }
+
+    fn get_location(&self) -> Option<Location> {
+        Some(self.get_location())
     }
 
     fn locate(self) -> LocatedComponent

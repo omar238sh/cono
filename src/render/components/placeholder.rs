@@ -1,6 +1,5 @@
 use std::{
     marker::PhantomData,
-    ops::Deref,
     sync::{
         LazyLock, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -10,7 +9,7 @@ use std::{
 use taffy::NodeId;
 
 use crate::render::{
-    components::{freebox::LocatedComponent, placeholder::RegisterMod::Register},
+    components::{freebox::Location, placeholder::RegisterMod::Register},
     error::RenderError,
     frame::Component,
     models::Size,
@@ -21,13 +20,13 @@ pub struct PlaceHolder<C: 'static> {
     pub pointer: ElementPointer<C>,
 }
 
-impl<C: Component + 'static> Clone for PlaceHolder<C> {
-    fn clone(&self) -> Self {
-        Self {
-            pointer: self.pointer,
-        }
-    }
-}
+// impl<C: Component + 'static> Clone for PlaceHolder<C> {
+//     fn clone(&self) -> Self {
+//         Self {
+//             pointer: self.pointer,
+//         }
+//     }
+// }
 
 impl<C: Component + Clone + 'static> PlaceHolder<C> {
     pub fn from(c: C) -> Result<Self, RenderError> {
@@ -46,6 +45,12 @@ impl<C: Component + Clone + 'static> PlaceHolder<C> {
 
     pub fn pointer(&self) -> ElementPointer<C> {
         self.pointer
+    }
+}
+
+impl<C: Component + 'static + Clone> Clone for PlaceHolder<C> {
+    fn clone(&self) -> Self {
+        Self::from(self.pointer.with(|a| a.clone()).unwrap()).unwrap()
     }
 }
 
@@ -74,6 +79,10 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
         self.pointer.with(|s| s.layout())?
     }
 
+    fn get_location(&self) -> Option<Location> {
+        self.pointer.with(|s| s.get_location()).unwrap_or(None)
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -82,33 +91,33 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
         self
     }
 
-    fn locate(self) -> LocatedComponent
-    where
-        Self: Sized + 'static,
-    {
-        let register_guard = GLOBAL_REGISTER
-            .lock()
-            .map_err(|_| {
-                RenderError::CustomError(
-                    "Lock Error : You Cannot Do any thing about this".to_string(),
-                )
-            })
-            .unwrap();
+    // fn locate(self) -> LocatedComponent
+    // where
+    //     Self: Sized + 'static,
+    // {
+    //     let register_guard = GLOBAL_REGISTER
+    //         .lock()
+    //         .map_err(|_| {
+    //             RenderError::CustomError(
+    //                 "Lock Error : You Cannot Do any thing about this".to_string(),
+    //             )
+    //         })
+    //         .unwrap();
 
-        let real_component = register_guard
-            .get(&self.pointer.id)
-            .unwrap()
-            .as_any()
-            .downcast_ref::<LocatedComponent>();
+    //     let real_component = register_guard
+    //         .get(&self.pointer.id)
+    //         .unwrap()
+    //         .as_any()
+    //         .downcast_ref::<LocatedComponent>();
 
-        match real_component {
-            Some(v) => LocatedComponent {
-                child: Box::new(self),
-                location: v.location.clone(),
-            },
-            None => LocatedComponent::new(self),
-        }
-    }
+    //     match real_component {
+    //         Some(v) => LocatedComponent {
+    //             child: Box::new(self),
+    //             location: v.get_location(),
+    //         },
+    //         None => LocatedComponent::new(self),
+    //     }
+    // }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]

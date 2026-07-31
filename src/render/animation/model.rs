@@ -159,7 +159,9 @@ impl Model {
     pub fn create_frame(&self) -> Frame {
         let mut frame = Frame::new(self.size);
         for comp in &self.components {
-            frame.content.add(comp.clone());
+            let mut comp = comp.clone();
+            comp.sync_location();
+            frame.content.add(comp);
         }
         frame
     }
@@ -346,8 +348,8 @@ mod tests {
         let controller = model.spawn_located(
             Text::new("Clean Model API").size(40).color("#ffffff"),
             Location::new(
-                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.5)),
-                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.5)),
+                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.25)),
+                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.25)),
             ),
         )?;
 
