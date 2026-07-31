@@ -16,15 +16,16 @@ use crate::render::{
     models::Size,
 };
 
-#[derive(Debug)]
 pub struct PlaceHolder<C: 'static> {
     pub pointer: ElementPointer<C>,
+    rendered_component: Option<C>,
 }
 
 impl<C: Component + 'static> Clone for PlaceHolder<C> {
     fn clone(&self) -> Self {
         Self {
             pointer: self.pointer,
+            rendered_component: None,
         }
     }
 }
@@ -41,6 +42,7 @@ impl<C: Component + Clone + 'static> PlaceHolder<C> {
             .add(c)?;
         Ok(Self {
             pointer: controller,
+            rendered_component: None,
         })
     }
 
@@ -56,22 +58,34 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
         &self,
         tree: &taffy::TaffyTree,
     ) -> Result<vello::Scene, crate::render::error::RenderError> {
-        self.pointer.with(|s| s.render(tree))?
+        match &self.rendered_component {
+            Some(component) => component.render(tree),
+            None => self.pointer.with(|s| s.render(tree))?,
+        }
     }
 
     fn size(&self) -> std::result::Result<Size, RenderError> {
-        self.pointer.with(|s| s.size())?
+        match &self.rendered_component {
+            Some(component) => component.size(),
+            None => self.pointer.with(|s| s.size())?,
+        }
     }
 
     fn register_layout(
         &mut self,
         tree: &mut taffy::TaffyTree,
     ) -> Result<NodeId, crate::render::error::RenderError> {
-        self.pointer.with_mut(|s| s.register_layout(tree))?
+        let mut component = self.pointer.with(|s| s.clone())?;
+        let id = component.register_layout(tree)?;
+        self.rendered_component = Some(component);
+        Ok(id)
     }
 
     fn layout(&self) -> Result<NodeId, crate::render::error::RenderError> {
-        self.pointer.with(|s| s.layout())?
+        match &self.rendered_component {
+            Some(component) => component.layout(),
+            None => Err(RenderError::NotComputed),
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
