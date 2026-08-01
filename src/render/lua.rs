@@ -99,14 +99,23 @@ pub fn new_lua() -> mlua_extras::mlua::Result<Lua> {
     let cono = lua.create_table()?;
 
     let size_table = lua.create_table()?;
-    size_table.set("new", lua.create_function(|_, (w, h): (f64, f64)| Ok(Size::new(w, h)))?)?;
+    size_table.set(
+        "new",
+        lua.create_function(|_, (w, h): (f64, f64)| Ok(Size::new(w, h)))?,
+    )?;
     size_table.set(
         "youtube_shorts",
         lua.create_function(|_, ()| Ok(Size::youtube_shorts()))?,
     )?;
-    size_table.set("youtube_video", lua.create_function(|_, ()| Ok(Size::youtube_video()))?)?;
+    size_table.set(
+        "youtube_video",
+        lua.create_function(|_, ()| Ok(Size::youtube_video()))?,
+    )?;
     size_table.set("tiktok", lua.create_function(|_, ()| Ok(Size::tiktok()))?)?;
-    size_table.set("x_landscape", lua.create_function(|_, ()| Ok(Size::x_landscape()))?)?;
+    size_table.set(
+        "x_landscape",
+        lua.create_function(|_, ()| Ok(Size::x_landscape()))?,
+    )?;
     cono.set("Size", size_table)?;
 
     let text_table = lua.create_table()?;
@@ -141,7 +150,9 @@ pub fn new_lua() -> mlua_extras::mlua::Result<Lua> {
     location_table.set(
         "center",
         lua.create_function(|_, anchor: Option<String>| {
-            Ok(Location::center(anchor.map(anchor_from).unwrap_or(Anchor::Center)))
+            Ok(Location::center(
+                anchor.map(anchor_from).unwrap_or(Anchor::Center),
+            ))
         })?,
     )?;
     cono.set("Location", location_table)?;
@@ -162,7 +173,9 @@ pub fn new_lua() -> mlua_extras::mlua::Result<Lua> {
 pub fn run_script(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let lua = new_lua()?;
     let source = fs::read_to_string(path)?;
-    lua.load(source).set_name(path.to_string_lossy().as_ref()).exec()?;
+    lua.load(source)
+        .set_name(path.to_string_lossy().as_ref())
+        .exec()?;
     Ok(())
 }
 
