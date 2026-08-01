@@ -1,3 +1,5 @@
+use std::{fs::read_to_string, path::Path};
+
 use taffy::{NodeId, Style, TaffyTree, prelude::length};
 use vello::{Scene, kurbo::Affine};
 use vello_svg::{self as vsvg};
@@ -80,6 +82,25 @@ impl SvgBox {
     pub fn padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
         self
+    }
+
+    pub fn from_path(path: &Path) -> Result<Self, RenderError> {
+        let content = read_to_string(path)
+            .map_err(|_| RenderError::CustomError("Cannot read svg file".to_string()))?;
+
+        let tree = vsvg::usvg::Tree::from_str(&content, &vsvg::usvg::Options::default())?;
+        let width = tree.size().width().ceil() as f64;
+        let height = tree.size().height().ceil() as f64;
+
+        let scene = vsvg::render_tree(&tree);
+
+        Ok(Self {
+            scene,
+            // tree,
+            padding: Padding::new(0.0),
+            size: Size::new(width, height),
+            id: None,
+        })
     }
 
     pub fn with_size(mut self, new_size: Size) -> Self {

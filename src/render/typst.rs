@@ -20,7 +20,7 @@ pub mod pager {
     #![allow(unused)]
 
     use std::fmt::Display;
-
+    #[deprecated]
     pub struct Pager {
         content: Vec<String>,
     }

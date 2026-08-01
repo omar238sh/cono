@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ops::Mul, path::Path};
 
 use crate::render::{
     animation::FpsTarget,
@@ -9,7 +9,7 @@ use crate::render::{
     error::RenderError,
     frame::{Component, Frame},
     models::Size,
-    scene::Scene,
+    scene::{Scene, multiply_scenes},
 };
 
 /// Easing functions for timing-controlled animations.
@@ -296,6 +296,94 @@ impl Model {
 }
 
 // =============================================================================
+// Frame-by-Frame Scene & Model Multiplication (Composition)
+// =============================================================================
+
+impl Mul<Model> for Model {
+    type Output = Scene;
+    fn mul(self, rhs: Model) -> Self::Output {
+        multiply_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Mul<&Model> for Model {
+    type Output = Scene;
+    fn mul(self, rhs: &Model) -> Self::Output {
+        multiply_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Mul<Model> for &Model {
+    type Output = Scene;
+    fn mul(self, rhs: Model) -> Self::Output {
+        multiply_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Mul<&Model> for &Model {
+    type Output = Scene;
+    fn mul(self, rhs: &Model) -> Self::Output {
+        multiply_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Mul<Scene> for Model {
+    type Output = Scene;
+    fn mul(self, rhs: Scene) -> Self::Output {
+        multiply_scenes(self.scene(), &rhs)
+    }
+}
+
+impl Mul<&Scene> for Model {
+    type Output = Scene;
+    fn mul(self, rhs: &Scene) -> Self::Output {
+        multiply_scenes(self.scene(), rhs)
+    }
+}
+
+impl Mul<Scene> for &Model {
+    type Output = Scene;
+    fn mul(self, rhs: Scene) -> Self::Output {
+        multiply_scenes(self.scene(), &rhs)
+    }
+}
+
+impl Mul<&Scene> for &Model {
+    type Output = Scene;
+    fn mul(self, rhs: &Scene) -> Self::Output {
+        multiply_scenes(self.scene(), rhs)
+    }
+}
+
+impl Mul<Model> for Scene {
+    type Output = Scene;
+    fn mul(self, rhs: Model) -> Self::Output {
+        multiply_scenes(&self, rhs.scene())
+    }
+}
+
+impl Mul<&Model> for Scene {
+    type Output = Scene;
+    fn mul(self, rhs: &Model) -> Self::Output {
+        multiply_scenes(&self, rhs.scene())
+    }
+}
+
+impl Mul<Model> for &Scene {
+    type Output = Scene;
+    fn mul(self, rhs: Model) -> Self::Output {
+        multiply_scenes(self, rhs.scene())
+    }
+}
+
+impl Mul<&Model> for &Scene {
+    type Output = Scene;
+    fn mul(self, rhs: &Model) -> Self::Output {
+        multiply_scenes(self, rhs.scene())
+    }
+}
+
+// =============================================================================
 // Lua Binding / UserData Compatibility
 // =============================================================================
 
@@ -344,26 +432,32 @@ mod tests {
     fn test_model_spawn_and_animate_clean_api() -> Result<(), RenderError> {
         let mut model = Model::new(Size::youtube_shorts(), FpsTarget::F120);
 
+        let mut model2 = Model::new(Size::youtube_shorts(), FpsTarget::F120);
+        model2.wait(5.0);
         // Single line spawning without managing multiple placeholder/pointer variables!
         let controller = model.spawn_located(
             Text::new("Clean Model API").size(40).color("#ffffff"),
             Location::new(
-                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.25)),
-                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.25)),
+                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.5)),
+                Coordinate::with_progress(Coordinate::zero(), Coordinate::Percentage(0.5)),
             ),
         )?;
-
+        model.with_pointer(controller, |a| {
+            a.set_anchor(crate::render::components::freebox::Anchor::Center);
+        })?;
         // Animate pointer using generic animate_pointer with Easing
         model.animate_pointer(controller, 1.0, Easing::EaseInOut, |lc, progress| {
             lc.location.set_progress(progress).unwrap();
         })?;
+
+        let s = model2 * model;
 
         let output_dir = Path::new("./tests");
         if !output_dir.exists() {
             std::fs::create_dir_all(output_dir).ok();
         }
         let output_path = output_dir.join("test_model_animation.mp4");
-        model.render_video(&output_path)?;
+        s.render(&output_path)?;
 
         assert!(output_path.exists());
         Ok(())
@@ -401,6 +495,34 @@ mod tests {
         })?;
 
         assert!(model.scene().frames_count() >= 30);
+        Ok(())
+    }
+
+    #[test]
+    fn test_model_and_scene_multiplication() -> Result<(), RenderError> {
+        let mut model_a = Model::new(Size::youtube_shorts(), FpsTarget::F30);
+        model_a.add_component(Text::new("Base Layer").size(30).color("#ff0000"));
+        model_a.wait(0.1)?; // 3 frames
+
+        let mut model_b = Model::new(Size::youtube_shorts(), FpsTarget::F30);
+        model_b.add_component(Text::new("Overlay Layer").size(30).color("#0000ff"));
+        model_b.wait(0.1)?; // 3 frames
+
+        // Equal length multiplication
+        let scene_combined = &model_a * &model_b;
+        assert_eq!(scene_combined.frames_count(), 3);
+
+        // Unequal length multiplication (e.g. 3 frames * 1 frame)
+        let mut model_single = Model::new(Size::youtube_shorts(), FpsTarget::F30);
+        model_single.add_component(Text::new("Single Frame").size(30).color("#00ff00"));
+        model_single.wait(0.033)?; // 1 frame
+
+        let scene_unequal = &model_a * &model_single;
+        assert_eq!(scene_unequal.frames_count(), 3);
+
+        let scene_unequal_reverse = &model_single * &model_a;
+        assert_eq!(scene_unequal_reverse.frames_count(), 3);
+
         Ok(())
     }
 }

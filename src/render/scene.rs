@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ops::Mul, path::Path};
 
 use taffy::TaffyTree;
 use vello::Scene as VelloScene;
@@ -11,14 +11,16 @@ use crate::render::{
     models::Size,
 };
 
+#[derive(Clone)]
 pub struct RenderedFrame {
     pub scene: VelloScene,
     pub size: Size,
 }
 
+#[derive(Clone)]
 pub struct Scene {
-    frames: Vec<RenderedFrame>,
-    fps: FpsTarget,
+    pub(crate) frames: Vec<RenderedFrame>,
+    pub(crate) fps: FpsTarget,
 }
 
 impl Scene {
@@ -197,6 +199,83 @@ impl Scene {
             .map_err(|e| RenderError::CustomError(format!("Cannot write trailer: {}", e)))?;
 
         Ok(())
+    }
+}
+
+pub fn multiply_scenes(a: &Scene, b: &Scene) -> Scene {
+    let len_a = a.frames.len();
+    let len_b = b.frames.len();
+
+    if len_a == 0 && len_b == 0 {
+        return Scene::new();
+    }
+    if len_a == 0 {
+        return b.clone();
+    }
+    if len_b == 0 {
+        return a.clone();
+    }
+
+    let max_len = std::cmp::max(len_a, len_b);
+    let mut combined_frames = Vec::with_capacity(max_len);
+
+    for i in 0..max_len {
+        let frame_a = &a.frames[if len_a == 1 { 0 } else { i.min(len_a - 1) }];
+        let frame_b = &b.frames[if len_b == 1 { 0 } else { i.min(len_b - 1) }];
+
+        let mut vello_scene = frame_a.scene.clone();
+        vello_scene.append(&frame_b.scene, None);
+
+        combined_frames.push(RenderedFrame {
+            scene: vello_scene,
+            size: frame_a.size,
+        });
+    }
+
+    Scene {
+        frames: combined_frames,
+        fps: a.fps(),
+    }
+}
+
+impl Mul<Scene> for Scene {
+    type Output = Scene;
+    fn mul(self, rhs: Scene) -> Self::Output {
+        multiply_scenes(&self, &rhs)
+    }
+}
+
+impl Mul<&Scene> for Scene {
+    type Output = Scene;
+    fn mul(self, rhs: &Scene) -> Self::Output {
+        multiply_scenes(&self, rhs)
+    }
+}
+
+impl Mul<Scene> for &Scene {
+    type Output = Scene;
+    fn mul(self, rhs: Scene) -> Self::Output {
+        multiply_scenes(self, &rhs)
+    }
+}
+
+impl Mul<&Scene> for &Scene {
+    type Output = Scene;
+    fn mul(self, rhs: &Scene) -> Self::Output {
+        multiply_scenes(self, rhs)
+    }
+}
+
+impl mlua_extras::mlua::UserData for Scene {
+    fn add_methods<M: mlua_extras::mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("fps", |_lua, this, ()| Ok(this.fps().value()));
+
+        methods.add_method("frames_count", |_lua, this, ()| Ok(this.frames_count()));
+
+        methods.add_method("render", |_lua, this, path_str: String| {
+            this.render(Path::new(&path_str))
+                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+        });
     }
 }
 

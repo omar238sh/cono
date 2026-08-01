@@ -3,7 +3,7 @@ pub mod model;
 
 pub use model::{Easing, Model};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FpsTarget {
     F30,
     F45,
