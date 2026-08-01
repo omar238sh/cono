@@ -1,15 +1,12 @@
-use vello::peniko::color::LinearSrgb;
-
-use crate::render::typst::{LuaWorld, pager::Pager};
-
 mod assets;
 mod fonts;
 mod render;
 fn main() {
-    let world = LuaWorld::new(
-        Pager::new()
-            .add("$ F(omega) = integral_(-oo)^(+oo) f(t) dot e^(-i omega t) d t $")
-            .add("$x = x + 1$")
-            .add("$y = (x + 1) / 3$"),
-    );
+    let script = std::env::args().nth(1);
+    if let Some(script) = script {
+        if let Err(err) = render::lua::run_script(std::path::Path::new(&script)) {
+            eprintln!("failed to run lua script: {err}");
+            std::process::exit(1);
+        }
+    }
 }

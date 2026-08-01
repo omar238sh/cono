@@ -3,8 +3,9 @@ use std::{ops::Mul, path::Path};
 use crate::render::{
     animation::FpsTarget,
     components::{
-        freebox::{Coordinate, LocatedComponent, Location},
+        freebox::{Anchor, Coordinate, LocatedComponent, Location},
         placeholder::{ElementPointer, PlaceHolder},
+        text::Text,
     },
     error::RenderError,
     frame::{Component, Frame},
@@ -49,6 +50,55 @@ pub struct Model {
     size: Size,
     scene: Scene,
     components: Vec<LocatedComponent>,
+}
+
+#[derive(Clone, Copy)]
+pub struct LuaLocatedPointer {
+    pointer: ElementPointer<LocatedComponent>,
+}
+
+impl LuaLocatedPointer {
+    pub fn new(pointer: ElementPointer<LocatedComponent>) -> Self {
+        Self { pointer }
+    }
+}
+
+impl mlua_extras::mlua::UserData for LuaLocatedPointer {
+    fn add_methods<M: mlua_extras::mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("set_position", |_lua, this, (x, y): (f64, f64)| {
+            this.pointer
+                .with_mut(|lc| {
+                    lc.set_location(Location::new(
+                        Coordinate::absolute(x),
+                        Coordinate::absolute(y),
+                    ));
+                })
+                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+        });
+
+        methods.add_method(
+            "set_progress",
+            |_lua, this, progress: f64| -> mlua_extras::mlua::Result<()> {
+                this.pointer
+                    .with_mut(|lc| lc.location.set_progress(progress))
+                    .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))?
+                    .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+            },
+        );
+
+        methods.add_method("set_anchor", |_lua, this, anchor: String| {
+            let anchor = match anchor.to_lowercase().as_str() {
+                "center" => Anchor::Center,
+                "topright" | "top_right" => Anchor::TopRight,
+                "bottomleft" | "bottom_left" => Anchor::BottomLeft,
+                "bottomright" | "bottom_right" => Anchor::BottomRight,
+                _ => Anchor::TopLeft,
+            };
+            this.pointer
+                .with_mut(|lc| lc.set_anchor(anchor))
+                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+        });
+    }
 }
 
 impl Model {
@@ -409,6 +459,29 @@ impl mlua_extras::mlua::UserData for Model {
             this.wait(duration_sec)
                 .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
         });
+
+        methods.add_method_mut("capture_frame", |_lua, this, ()| {
+            let frame = this.create_frame();
+            this.push_frame(frame)
+                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+        });
+
+        methods.add_method("frames_count", |_lua, this, ()| {
+            Ok(this.scene().frames_count())
+        });
+
+        methods.add_method_mut(
+            "spawn_text",
+            |_lua, this, (content, x, y): (String, f64, f64)| {
+                let pointer = this
+                    .spawn_located(
+                        Text::new(content),
+                        Location::new(Coordinate::absolute(x), Coordinate::absolute(y)),
+                    )
+                    .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))?;
+                Ok(LuaLocatedPointer::new(pointer))
+            },
+        );
 
         methods.add_method("render_video", |_lua, this, path_str: String| {
             this.render_video(Path::new(&path_str))
