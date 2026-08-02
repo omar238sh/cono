@@ -17,10 +17,36 @@ pub struct RenderedFrame {
     pub size: Size,
 }
 
+impl mlua::FromLua for RenderedFrame {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(ud.borrow::<Self>()?.clone());
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "RenderedFrame".to_string(),
+            message: Some("expected RenderedFrame UserData".to_string()),
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct Scene {
     pub(crate) frames: Vec<RenderedFrame>,
     pub(crate) fps: FpsTarget,
+}
+
+impl mlua::FromLua for Scene {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(ud.borrow::<Self>()?.clone());
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Scene".to_string(),
+            message: Some("expected Scene UserData".to_string()),
+        })
+    }
 }
 
 impl Scene {
@@ -266,15 +292,59 @@ impl Mul<&Scene> for &Scene {
     }
 }
 
-impl mlua_extras::mlua::UserData for Scene {
-    fn add_methods<M: mlua_extras::mlua::UserDataMethods<Self>>(methods: &mut M) {
+impl mlua::UserData for RenderedFrame {
+    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
+        fields.add_field_method_get("size", |_, this| Ok(this.size));
+        fields.add_field_method_set("size", |_, this, size: Size| {
+            this.size = size;
+            Ok(())
+        });
+    }
+
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method("size", |_, this, ()| Ok(this.size));
+    }
+}
+
+impl mlua::UserData for Scene {
+    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
+        fields.add_field_method_get("fps", |_, this| Ok(this.fps().value()));
+        fields.add_field_method_set("fps", |_, this, fps: u32| {
+            this.set_fps(FpsTarget::Custom(fps));
+            Ok(())
+        });
+        fields.add_field_method_get("frames_count", |_, this| Ok(this.frames_count()));
+    }
+
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("new", |_, ()| Ok(Scene::new()));
+
         methods.add_method("fps", |_lua, this, ()| Ok(this.fps().value()));
+
+        methods.add_method_mut("set_fps", |_lua, this, fps: u32| {
+            this.set_fps(FpsTarget::Custom(fps));
+            Ok(())
+        });
 
         methods.add_method("frames_count", |_lua, this, ()| Ok(this.frames_count()));
 
+        methods.add_method_mut("push_frame", |_lua, this, frame: Frame| {
+            this.push_frame(frame)
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
+
+        methods.add_method_mut("append", |_lua, this, other: Scene| {
+            this.append(other)
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
+
         methods.add_method("render", |_lua, this, path_str: String| {
             this.render(Path::new(&path_str))
-                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
+
+        methods.add_meta_method(mlua::MetaMethod::Mul, |_, this, other: Scene| {
+            Ok(this.clone() * other)
         });
     }
 }

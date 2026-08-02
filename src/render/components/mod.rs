@@ -12,6 +12,80 @@ pub mod style;
 pub mod svg;
 pub mod text;
 
+#[macro_export]
+macro_rules! down_cast {
+    ($obj:expr, $method:ident, $val:expr) => {
+        $crate::down_cast!(
+            $obj, $method, $val => [
+                Text,
+                Column,
+                Row,
+                Container,
+                FreeBox,
+                SvgBox,
+                LocatedComponent,
+                PlaceHolder<LocatedComponent>,
+                PlaceHolder<Text>,
+                PlaceHolder<Column>,
+                PlaceHolder<Row>,
+                PlaceHolder<Container>,
+                PlaceHolder<FreeBox>,
+                PlaceHolder<SvgBox>
+            ]
+        );
+    };
+
+    ($val:expr, |$c:ident| $action:expr) => {
+        $crate::down_cast!(
+            $val, |$c| $action => [
+                Text, Column, Row, Container, FreeBox, SvgBox, LocatedComponent,
+                PlaceHolder<LocatedComponent>, PlaceHolder<Text>, PlaceHolder<Column>,
+                PlaceHolder<Row>, PlaceHolder<Container>, PlaceHolder<FreeBox>, PlaceHolder<SvgBox>
+            ]
+        )
+    };
+
+    ($obj:expr, $method:ident, $val:expr => [ $( $ty:ty ),* $(,)? ]) => {
+        {
+
+            use crate::render::components::{
+                column::Column, container::Container, freebox::{FreeBox, LocatedComponent}, placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
+            };
+            if let mlua::Value::UserData(ud) = $val {
+                $(
+                    if let Ok(c) = ud.borrow::<$ty>() {
+                        ($obj).$method((*c).clone());
+                    } else
+                )*
+                {
+                }
+            }
+        }
+    };
+
+    ($val:expr, |$c:ident| $action:expr => [ $( $ty:ty ),* $(,)? ]) => {
+        {
+            use crate::render::components::{
+                column::Column, container::Container, freebox::{FreeBox, LocatedComponent},
+                placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
+            };
+
+            let mut result = None;
+            if let mlua::Value::UserData(ud) = $val {
+                $(
+                    if let Ok($c) = ud.borrow::<$ty>() {
+                        let $c = (*$c).clone();
+                        result = Some($action);
+                    } else
+                )*
+                {
+                }
+            }
+            result
+        }
+    };
+}
+
 struct RenderTargetCache {
     width: u32,
     height: u32,

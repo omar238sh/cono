@@ -8,9 +8,14 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    kimi = {
+      url = "github:MoonshotAI/kimi-cli";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = {  nixpkgs, fenix, ... }:
+  outputs = {  nixpkgs, fenix,kimi ,... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -48,6 +53,8 @@
           pkgs.ffmpeg
           pkgs.clang
           pkgs.libclang
+          kimi.packages.${system}.default
+          pkgs.gdb
         ];
         shellHook = ''
           export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [

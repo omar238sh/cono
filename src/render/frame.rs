@@ -5,14 +5,29 @@ use image::{ImageBuffer, Rgba};
 use taffy::{NodeId, TaffyTree};
 use vello::Scene;
 
+use crate::down_cast;
 use crate::render::components::SceneGpuRenderer;
 use crate::render::components::freebox::{FreeBox, LocatedComponent, Location};
 use crate::render::components::placeholder::{ElementPointer, PlaceHolder};
 use crate::render::error::RenderError;
 use crate::render::models::Size;
 
+#[derive(Clone)]
 pub struct Frame {
     pub content: FreeBox,
+}
+
+impl mlua::FromLua for Frame {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(ud.borrow::<Self>()?.clone());
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Frame".to_string(),
+            message: Some("expected Frame UserData".to_string()),
+        })
+    }
 }
 
 impl Frame {
@@ -27,6 +42,10 @@ impl Frame {
         self
     }
 
+    pub fn add_mut<C: Component + 'static>(&mut self, c: C) {
+        self.content.add(c.locate());
+    }
+
     pub fn to_image(&mut self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, RenderError> {
         let mut tree = TaffyTree::new();
         self.content.register_layout(&mut tree)?;
@@ -37,6 +56,23 @@ impl Frame {
             self.content.size()?.height as u32,
         )?;
         Ok(image)
+    }
+}
+impl mlua::UserData for Frame {
+    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
+        fields.add_field_method_get("content", |_, this| Ok(this.content.clone()));
+        fields.add_field_method_set("content", |_, this, content: FreeBox| {
+            this.content = content;
+            Ok(())
+        });
+    }
+
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("new", |_, size: Size| Ok(Frame::new(size)));
+        methods.add_method_mut("add", |_, this, val: mlua::Value| {
+            down_cast!(this, add_mut, val);
+            Ok(())
+        });
     }
 }
 
@@ -100,3 +136,40 @@ impl Clone for Box<dyn Component> {
         self.clone_box()
     }
 }
+
+// impl Component for Box<dyn Component> {
+//     fn render(&self, tree: &TaffyTree) -> Result<Scene, RenderError> {
+//         self.as_ref().render(tree)
+//     }
+
+//     fn size(&self) -> Result<Size, RenderError> {
+//         self.as_ref().size()
+//     }
+
+//     fn register_layout(&mut self, tree: &mut TaffyTree) -> Result<NodeId, RenderError> {
+//         self.as_mut().register_layout(tree)
+//     }
+
+//     fn layout(&self) -> Result<NodeId, RenderError> {
+//         self.as_ref().layout()
+//     }
+
+//     fn get_location(&self) -> Option<Location> {
+//         self.as_ref().get_location()
+//     }
+
+//     fn locate(self) -> LocatedComponent {
+//         LocatedComponent {
+//             child: self,
+//             location: Location::zero(),
+//         }
+//     }
+
+//     fn as_any(&self) -> &dyn Any {
+//         self.as_ref().as_any()
+//     }
+
+//     fn as_any_mut(&mut self) -> &mut dyn Any {
+//         self.as_mut().as_any_mut()
+//     }
+// }

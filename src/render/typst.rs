@@ -21,8 +21,22 @@ pub mod pager {
 
     use std::fmt::Display;
     #[deprecated]
+    #[derive(Clone)]
     pub struct Pager {
         content: Vec<String>,
+    }
+
+    impl mlua::FromLua for Pager {
+        fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+            if let mlua::Value::UserData(ud) = value {
+                return Ok(ud.borrow::<Self>()?.clone());
+            }
+            Err(mlua::Error::FromLuaConversionError {
+                from: value.type_name(),
+                to: "Pager".to_string(),
+                message: Some("expected Pager UserData".to_string()),
+            })
+        }
     }
 
     impl Pager {
@@ -64,6 +78,34 @@ pub mod pager {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}", self.content.join("\n#pagebreak()\n"))
         }
+    }
+
+    impl mlua::UserData for Pager {
+        fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
+            fields.add_field_method_get("len", |_, this| Ok(this.len()));
+            fields.add_field_method_get("is_empty", |_, this| Ok(this.is_empty()));
+        }
+
+        fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+            methods.add_function("new", |_, ()| Ok(Pager::new()));
+            methods.add_method("add", |_, this, content: String| Ok(this.clone().add(content)));
+            methods.add_method("get", |_, this, page: usize| Ok(this.get(page).cloned()));
+            methods.add_method("len", |_, this, ()| Ok(this.len()));
+            methods.add_method("is_empty", |_, this, ()| Ok(this.is_empty()));
+        }
+    }
+}
+
+impl mlua::UserData for LuaWorld {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("new", |_, pager: pager::Pager| Ok(LuaWorld::new(pager)));
+        methods.add_method_mut("raw_content", |_, this, src: String| {
+            this.raw_content(src);
+            Ok(())
+        });
+        methods.add_method("to_svgs", |_, this, ()| {
+            this.to_svgs().map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
     }
 }
 

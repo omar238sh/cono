@@ -1,15 +1,21 @@
 use std::{ops::Mul, path::Path};
 
-use crate::render::{
-    animation::FpsTarget,
-    components::{
-        freebox::{Coordinate, LocatedComponent, Location},
-        placeholder::{ElementPointer, PlaceHolder},
+use crate::{
+    down_cast,
+    render::{
+        animation::FpsTarget,
+        components::{
+            column::Column,
+            freebox::{Coordinate, LocatedComponent, Location},
+            placeholder::{ElementPointer, PlaceHolder},
+            row::Row,
+            text::Text,
+        },
+        error::RenderError,
+        frame::{Component, Frame},
+        models::Size,
+        scene::{Scene, multiply_scenes},
     },
-    error::RenderError,
-    frame::{Component, Frame},
-    models::Size,
-    scene::{Scene, multiply_scenes},
 };
 
 /// Easing functions for timing-controlled animations.
@@ -41,14 +47,41 @@ impl Easing {
     }
 }
 
+impl mlua::FromLua for Easing {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(*ud.borrow::<Self>()?);
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Easing".to_string(),
+            message: Some("expected Easing UserData".to_string()),
+        })
+    }
+}
+
 /// `Model` offers high-level animation, composition, timing, and frame synchronization control,
 /// while maintaining low-level access to components and underlying `Scene` structures.
 ///
 /// Designed with full compatibility for Lua bindings (via `mlua::UserData`).
+#[derive(Clone)]
 pub struct Model {
     size: Size,
     scene: Scene,
     components: Vec<LocatedComponent>,
+}
+
+impl mlua::FromLua for Model {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(ud.borrow::<Self>()?.clone());
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Model".to_string(),
+            message: Some("expected Model UserData".to_string()),
+        })
+    }
 }
 
 impl Model {
@@ -387,32 +420,320 @@ impl Mul<&Model> for &Scene {
 // Lua Binding / UserData Compatibility
 // =============================================================================
 
-impl mlua_extras::mlua::UserData for Model {
-    fn add_methods<M: mlua_extras::mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("size", |_lua, this, ()| {
-            Ok((this.size().width, this.size().height))
+impl mlua::UserData for Easing {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("linear", |_, ()| Ok(Easing::Linear));
+        methods.add_function("ease_in", |_, ()| Ok(Easing::EaseIn));
+        methods.add_function("ease_out", |_, ()| Ok(Easing::EaseOut));
+        methods.add_function("ease_in_out", |_, ()| Ok(Easing::EaseInOut));
+        methods.add_method("ease", |_, this, t: f64| Ok(this.ease(t)));
+        methods.add_meta_method(mlua::MetaMethod::ToString, |_, this, ()| {
+            Ok(match this {
+                Easing::Linear => "Easing::Linear".to_string(),
+                Easing::EaseIn => "Easing::EaseIn".to_string(),
+                Easing::EaseOut => "Easing::EaseOut".to_string(),
+                Easing::EaseInOut => "Easing::EaseInOut".to_string(),
+                Easing::Custom(_) => "Easing::Custom(...)".to_string(),
+            })
+        });
+    }
+}
+
+use crate::render::components::placeholder::{
+    ElementId, GLOBAL_REGISTER, invoke_lua_with_component_mut,
+};
+
+fn parse_easing_val(val: mlua::Value) -> Easing {
+    if let mlua::Value::UserData(ud) = &val {
+        if let Ok(e) = ud.borrow::<Easing>() {
+            return *e;
+        }
+    }
+    if let mlua::Value::String(s) = &val {
+        if let Ok(str_val) = s.to_str() {
+            match str_val.as_ref() {
+                "ease_in" => return Easing::EaseIn,
+                "ease_out" => return Easing::EaseOut,
+                "ease_in_out" => return Easing::EaseInOut,
+                _ => return Easing::Linear,
+            }
+        }
+    }
+    Easing::Linear
+}
+
+impl mlua::UserData for Model {
+    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
+        fields.add_field_method_get("size", |_, this| Ok(this.size()));
+        fields.add_field_method_set("size", |_, this, size: Size| {
+            this.set_size(size);
+            Ok(())
+        });
+        fields.add_field_method_get("fps", |_, this| Ok(this.fps().value()));
+        fields.add_field_method_set("fps", |_, this, fps: u32| {
+            this.set_fps(FpsTarget::Custom(fps));
+            Ok(())
+        });
+    }
+
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("new", |_, (size, fps_val): (Size, mlua::Value)| {
+            let fps = if let mlua::Value::UserData(ud) = &fps_val {
+                if let Ok(target) = ud.borrow::<FpsTarget>() {
+                    *target
+                } else {
+                    FpsTarget::F30
+                }
+            } else if let mlua::Value::Integer(v) = fps_val {
+                FpsTarget::Custom(v as u32)
+            } else {
+                FpsTarget::F30
+            };
+            Ok(Model::new(size, fps))
         });
 
-        methods.add_method_mut("set_size", |_lua, this, (w, h): (f64, f64)| {
-            this.set_size(Size::new(w, h));
+        methods.add_method("size", |_lua, this, ()| Ok(this.size()));
+
+        methods.add_method_mut("set_size", |_lua, this, size: Size| {
+            this.set_size(size);
             Ok(())
         });
 
         methods.add_method("fps", |_lua, this, ()| Ok(this.fps().value()));
 
-        methods.add_method_mut("set_fps", |_lua, this, fps: u32| {
-            this.set_fps(FpsTarget::Custom(fps));
+        methods.add_method_mut("set_fps", |_lua, this, fps_val: mlua::Value| {
+            let fps = if let mlua::Value::UserData(ud) = &fps_val {
+                if let Ok(target) = ud.borrow::<FpsTarget>() {
+                    *target
+                } else {
+                    FpsTarget::F30
+                }
+            } else if let mlua::Value::Integer(v) = fps_val {
+                FpsTarget::Custom(v as u32)
+            } else {
+                FpsTarget::F30
+            };
+            this.set_fps(fps);
             Ok(())
         });
 
+        methods.add_method_mut("add_component", |_, this, val: mlua::Value| {
+            if let mlua::Value::UserData(ud) = &val {
+                if let Ok(lc) = ud.borrow::<LocatedComponent>() {
+                    this.components.push(lc.clone());
+                    return Ok(());
+                }
+            }
+            down_cast!(this, add_component, val);
+            Ok(())
+        });
+
+        methods.add_method_mut(
+            "spawn_located",
+            |_, this, (val, loc): (mlua::Value, Location)| {
+                if let mlua::Value::UserData(ud) = &val {
+                    if let Ok(lc) = ud.borrow::<LocatedComponent>() {
+                        let mut lc_clone = lc.clone();
+                        lc_clone.location = loc;
+                        let placeholder = PlaceHolder::from(lc_clone)
+                            .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                        let pointer = placeholder.pointer();
+                        this.components.push(placeholder.locate());
+                        return Ok(pointer);
+                    }
+                }
+
+                let located = down_cast!(val, |c| {
+                    LocatedComponent {
+                        child: Box::new(c),
+                        location: loc,
+                    }
+                });
+                let placeholder = PlaceHolder::from(located.unwrap())
+                    .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                let pointer = placeholder.pointer();
+                this.components.push(placeholder.locate());
+                Ok(pointer)
+            },
+        );
+
+        methods.add_method("create_frame", |_, this, ()| Ok(this.create_frame()));
+
+        methods.add_method_mut("push_frame", |_, this, frame: Frame| {
+            this.push_frame(frame)
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
+
+        methods.add_method("scene", |_, this, ()| Ok(this.scene().clone()));
+
         methods.add_method_mut("wait", |_lua, this, duration_sec: f64| {
             this.wait(duration_sec)
-                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
 
         methods.add_method("render_video", |_lua, this, path_str: String| {
             this.render_video(Path::new(&path_str))
-                .map_err(|e| mlua_extras::mlua::Error::external(format!("{:?}", e)))
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
+
+        // Function-taking methods in Lua!
+        methods.add_method_mut(
+            "animate",
+            |lua, this, (target, duration_sec, anim_fn): (mlua::Value, f64, mlua::Function)| {
+                let fps_val = this.scene().fps().value() as f64;
+                let total_frames = ((duration_sec * fps_val).round() as u32).max(1);
+
+                for i in 0..total_frames {
+                    let linear_t = if total_frames == 1 {
+                        1.0
+                    } else {
+                        i as f64 / (total_frames - 1) as f64
+                    };
+
+                    anim_fn.call::<()>((target.clone(), linear_t))?;
+
+                    let frame = this.create_frame();
+                    this.push_frame(frame)
+                        .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                }
+                Ok(())
+            },
+        );
+
+        methods.add_method_mut(
+            "animate_easing",
+            |lua,
+             this,
+             (target, duration_sec, easing_val, anim_fn): (
+                mlua::Value,
+                f64,
+                mlua::Value,
+                mlua::Function,
+            )| {
+                let easing = parse_easing_val(easing_val);
+                let fps_val = this.scene().fps().value() as f64;
+                let total_frames = ((duration_sec * fps_val).round() as u32).max(1);
+
+                for i in 0..total_frames {
+                    let linear_t = if total_frames == 1 {
+                        1.0
+                    } else {
+                        i as f64 / (total_frames - 1) as f64
+                    };
+                    let eased_t = easing.ease(linear_t);
+
+                    anim_fn.call::<()>((target.clone(), eased_t))?;
+
+                    let frame = this.create_frame();
+                    this.push_frame(frame)
+                        .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                }
+                Ok(())
+            },
+        );
+
+        methods.add_method_mut(
+            "animate_pointer",
+            |lua,
+             this,
+             (pointer_ud, duration_sec, easing_val, anim_fn): (
+                mlua::Value,
+                f64,
+                mlua::Value,
+                mlua::Function,
+            )| {
+                let easing = parse_easing_val(easing_val);
+                let fps_val = this.scene().fps().value() as f64;
+                let total_frames = ((duration_sec * fps_val).round() as u32).max(1);
+
+                // Extract ElementId from pointer_ud UserData
+                let pointer_id = if let mlua::Value::UserData(ref ud) = pointer_ud {
+                    if let Ok(ptr) = ud.borrow::<ElementPointer<LocatedComponent>>() {
+                        ptr.id
+                    } else if let Ok(ptr) = ud.borrow::<ElementPointer<Text>>() {
+                        ptr.id
+                    } else if let Ok(ptr) = ud.borrow::<ElementPointer<Column>>() {
+                        ptr.id
+                    } else if let Ok(ptr) = ud.borrow::<ElementPointer<Row>>() {
+                        ptr.id
+                    } else {
+                        return Err(mlua::Error::external(
+                            "Invalid ElementPointer passed to animate_pointer",
+                        ));
+                    }
+                } else {
+                    return Err(mlua::Error::external("ElementPointer required"));
+                };
+
+                for i in 0..total_frames {
+                    let linear_t = if total_frames == 1 {
+                        1.0
+                    } else {
+                        i as f64 / (total_frames - 1) as f64
+                    };
+                    let eased_t = easing.ease(linear_t);
+
+                    {
+                        let mut register_guard = GLOBAL_REGISTER
+                            .lock()
+                            .map_err(|_| mlua::Error::external("Lock Error: GLOBAL_REGISTER"))?;
+                        let box_comp = register_guard
+                            .get_mut(&pointer_id)
+                            .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                        invoke_lua_with_component_mut(lua, &mut **box_comp, anim_fn.clone())?;
+                    }
+
+                    let frame = this.create_frame();
+                    this.push_frame(frame)
+                        .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                }
+                Ok(())
+            },
+        );
+
+        methods.add_method(
+            "with_pointer",
+            |lua, this, (pointer_ud, func): (mlua::Value, mlua::Function)| {
+                let pointer_id = if let mlua::Value::UserData(ref ud) = pointer_ud {
+                    if let Ok(ptr) = ud.borrow::<ElementPointer<LocatedComponent>>() {
+                        ptr.id
+                    } else if let Ok(ptr) = ud.borrow::<ElementPointer<Text>>() {
+                        ptr.id
+                    } else if let Ok(ptr) = ud.borrow::<ElementPointer<Column>>() {
+                        ptr.id
+                    } else if let Ok(ptr) = ud.borrow::<ElementPointer<Row>>() {
+                        ptr.id
+                    } else {
+                        return Err(mlua::Error::external(
+                            "Invalid ElementPointer passed to with_pointer",
+                        ));
+                    }
+                } else {
+                    return Err(mlua::Error::external("ElementPointer required"));
+                };
+
+                let mut register_guard = GLOBAL_REGISTER
+                    .lock()
+                    .map_err(|_| mlua::Error::external("Lock Error: GLOBAL_REGISTER"))?;
+                let box_comp = register_guard
+                    .get_mut(&pointer_id)
+                    .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+                invoke_lua_with_component_mut(lua, &mut **box_comp, func)
+            },
+        );
+
+        methods.add_meta_method(mlua::MetaMethod::Mul, |_, this, other_val: mlua::Value| {
+            if let mlua::Value::UserData(ud) = &other_val {
+                if let Ok(other_model) = ud.borrow::<Model>() {
+                    return Ok(this.clone() * other_model.clone());
+                }
+                if let Ok(other_scene) = ud.borrow::<Scene>() {
+                    return Ok(this.clone() * other_scene.clone());
+                }
+            }
+            Err(mlua::Error::external(
+                "Invalid operand for Model multiplication",
+            ))
         });
     }
 }
@@ -433,7 +754,7 @@ mod tests {
         let mut model = Model::new(Size::youtube_shorts(), FpsTarget::F120);
 
         let mut model2 = Model::new(Size::youtube_shorts(), FpsTarget::F120);
-        model2.wait(5.0);
+        model2.wait(5.0)?;
         // Single line spawning without managing multiple placeholder/pointer variables!
         let controller = model.spawn_located(
             Text::new("Clean Model API").size(40).color("#ffffff"),
@@ -487,7 +808,7 @@ mod tests {
             st.x_pos = progress * 300.0;
             let current_x = st.x_pos;
             let _ = st.text_ptr.with_mut(|lc| {
-                lc.shift(Location::new(
+                lc.set_location(Location::new(
                     Coordinate::Absolute(current_x),
                     Coordinate::Absolute(100.0),
                 ));

@@ -8,7 +8,7 @@ chrono = "0.4.45"
 ffmpeg-next = "8.1.0"
 image = "0.25.9"
 
-mlua-extras = { version = "11.6.2" , features = ["luau-jit", "macros"]} 
+mlua = { version = "0.12.0" , features = ["luau", "macros"]} 
 
 pollster = "0.4.0"
 rust-embed = "8.11.0"

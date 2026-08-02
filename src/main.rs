@@ -1,9 +1,9 @@
 use vello::peniko::color::LinearSrgb;
 
 use crate::render::typst::{LuaWorld, pager::Pager};
-
 mod assets;
 mod fonts;
+mod prelude;
 mod render;
 fn main() {
     let world = LuaWorld::new(
