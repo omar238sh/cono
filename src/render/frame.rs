@@ -69,7 +69,7 @@ impl mlua::UserData for Frame {
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("new", |_, size: Size| Ok(Frame::new(size)));
-        methods.add_method_mut("add", |_, this, val: mlua::Value| {
+        methods.add_method_mut("add", |_, this, val: mlua::AnyUserData| {
             down_cast!(this, add_mut, val);
             Ok(())
         });

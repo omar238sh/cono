@@ -47,18 +47,22 @@ macro_rules! down_cast {
 
     ($obj:expr, $method:ident, $val:expr => [ $( $ty:ty ),* $(,)? ]) => {
         {
-
             use crate::render::components::{
-                column::Column, container::Container, freebox::{FreeBox, LocatedComponent}, placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
+                column::Column, container::Container, freebox::{FreeBox, LocatedComponent},
+                placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
             };
-            if let mlua::Value::UserData(ud) = $val {
-                $(
-                    if let Ok(c) = ud.borrow::<$ty>() {
+
+            let mut handled = false;
+            $(
+                if !handled {
+                    if let Ok(c) = $val.borrow::<$ty>() {
                         ($obj).$method((*c).clone());
-                    } else
-                )*
-                {
+                        handled = true;
+                    }
                 }
+            )*
+            if !handled {
+                return Err(mlua::Error::UserDataTypeMismatch);
             }
         }
     };
@@ -71,16 +75,14 @@ macro_rules! down_cast {
             };
 
             let mut result = None;
-            if let mlua::Value::UserData(ud) = $val {
-                $(
-                    if let Ok($c) = ud.borrow::<$ty>() {
+            $(
+                if result.is_none() {
+                    if let Ok($c) = $val.borrow::<$ty>() {
                         let $c = (*$c).clone();
                         result = Some($action);
-                    } else
-                )*
-                {
+                    }
                 }
-            }
+            )*
             result
         }
     };

@@ -174,7 +174,7 @@ impl UserData for Column {
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("new", |_, size: Size| Ok(Column::new(size)));
-        methods.add_method_mut("push", |_, this, val: mlua::Value| {
+        methods.add_method_mut("push", |_, this, val: mlua::AnyUserData| {
             down_cast!(val, |c| {
                 this.contents.push(Box::new(c));
             });

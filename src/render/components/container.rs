@@ -263,7 +263,7 @@ impl mlua::UserData for Container {
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_function("new", |_, child: mlua::Value| {
+        methods.add_function("new", |_, child: mlua::AnyUserData| {
             let a = down_cast!(child, |c| {
                 Container::new(c).map_err(|e| mlua::Error::external(format!("{:?}", e)))
             })

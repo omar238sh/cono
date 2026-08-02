@@ -144,7 +144,7 @@ impl Coordinate {
                     _ => unreachable!(),
                 };
 
-                Self::Absolute(base + progress * target)
+                Self::Absolute(base + progress * (target - base))
             }
         }
     }
@@ -658,10 +658,18 @@ impl mlua::UserData for LocatedComponent {
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_function("new", |_, val: mlua::Value| {
+        methods.add_function("new", |_, val: mlua::AnyUserData| {
             let located = down_cast!(val, |c| { LocatedComponent::new(c) }).unwrap();
             Ok(located)
         });
+
+        methods.add_method_mut("update_progress", |_, this, progress| {
+            this.location
+                .set_progress(progress)
+                .map_err(|e| mlua::Error::external(format!("{}", e)))?;
+            Ok(())
+        });
+
         methods.add_method("location", |_, this, loc: Location| {
             Ok(this.clone().location(loc))
         });
@@ -698,13 +706,7 @@ impl mlua::UserData for FreeBox {
         methods.add_method("with_child", |_, this, child: LocatedComponent| {
             Ok(this.clone().with_child(child))
         });
-        methods.add_method_mut("add", |_, this, val: mlua::Value| {
-            if let mlua::Value::UserData(ref ud) = val {
-                if let Ok(lc) = ud.borrow::<LocatedComponent>() {
-                    this.contents.push(lc.clone());
-                    return Ok(());
-                }
-            }
+        methods.add_method_mut("add", |_, this, val: mlua::AnyUserData| {
             down_cast!(val, |a| {
                 this.add(a.clone());
             });

@@ -229,48 +229,38 @@ pub fn invoke_lua_with_component_mut(
     comp: &mut dyn Component,
     func: mlua::Function,
 ) -> mlua::Result<()> {
-    if let Some(lc) = comp.as_any_mut().downcast_mut::<LocatedComponent>() {
-        let mut temp = lc.clone();
-        func.call::<()>(temp.clone())?;
-        *lc = temp;
-        return Ok(());
+    invoke_lua_with_component_mut_with_progress(lua, comp, func, None)
+}
+
+pub fn invoke_lua_with_component_mut_with_progress(
+    _lua: &mlua::Lua,
+    comp: &mut dyn Component,
+    func: mlua::Function,
+    progress: Option<f64>,
+) -> mlua::Result<()> {
+    macro_rules! call_func {
+        ($ty:ty) => {
+            if let Some(val) = comp.as_any_mut().downcast_mut::<$ty>() {
+                let temp = val.clone();
+                if let Some(p) = progress {
+                    func.call::<()>((temp.clone(), p))?;
+                } else {
+                    func.call::<()>(temp.clone())?;
+                }
+                *val = temp;
+                return Ok(());
+            }
+        };
     }
-    if let Some(t) = comp.as_any_mut().downcast_mut::<Text>() {
-        let mut temp = t.clone();
-        func.call::<()>(temp.clone())?;
-        *t = temp;
-        return Ok(());
-    }
-    if let Some(c) = comp.as_any_mut().downcast_mut::<Column>() {
-        let mut temp = c.clone();
-        func.call::<()>(temp.clone())?;
-        *c = temp;
-        return Ok(());
-    }
-    if let Some(r) = comp.as_any_mut().downcast_mut::<Row>() {
-        let mut temp = r.clone();
-        func.call::<()>(temp.clone())?;
-        *r = temp;
-        return Ok(());
-    }
-    if let Some(cnt) = comp.as_any_mut().downcast_mut::<Container>() {
-        let mut temp = cnt.clone();
-        func.call::<()>(temp.clone())?;
-        *cnt = temp;
-        return Ok(());
-    }
-    if let Some(f) = comp.as_any_mut().downcast_mut::<FreeBox>() {
-        let mut temp = f.clone();
-        func.call::<()>(temp.clone())?;
-        *f = temp;
-        return Ok(());
-    }
-    if let Some(s) = comp.as_any_mut().downcast_mut::<SvgBox>() {
-        let mut temp = s.clone();
-        func.call::<()>(temp.clone())?;
-        *s = temp;
-        return Ok(());
-    }
+
+    call_func!(LocatedComponent);
+    call_func!(Text);
+    call_func!(Column);
+    call_func!(Row);
+    call_func!(Container);
+    call_func!(FreeBox);
+    call_func!(SvgBox);
+
     Err(mlua::Error::external(
         "Unknown component type in ElementPointer::with_mut",
     ))
