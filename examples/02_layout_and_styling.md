@@ -114,7 +114,7 @@ local model = Model.new(Size.youtube_video(), FpsTarget.f30())
 local pager = Pager.new()
     :add("$ f(x) = sum_(n=0)^oo (f^(n)(a))/(n!) (x - a)^n $")
 
-local world = LuaWorld::new(pager) -- Compiles Typst document
+local world = LuaWorld.new(pager) -- Compiles Typst document
 local math_svgs = world:to_svgs()
 local taylor_eq = math_svgs[1]:scale(2.0) -- Scale equation vector up 2x
 

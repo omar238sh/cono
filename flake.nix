@@ -55,6 +55,7 @@
           pkgs.libclang
           kimi.packages.${system}.default
           pkgs.gdb
+          pkgs.lua-language-server
         ];
         shellHook = ''
           export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [

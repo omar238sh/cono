@@ -1,0 +1,9 @@
+{
+  "workspace.library": [
+    "src/render/lua/lua_definitions.lua"
+  ],
+  "diagnostics.globals": [
+    "model",
+    "Easing"
+  ]
+}

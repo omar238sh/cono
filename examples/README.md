@@ -66,3 +66,12 @@ model:render_video("output.mp4")
 - **FPS Targets**: `FpsTarget.f24()`, `FpsTarget.f30()`, `FpsTarget.f60()`, `FpsTarget.f120()`, `FpsTarget.custom(60)`.
 - **Easing Curves**: `Easing.linear()`, `Easing.ease_in()`, `Easing.ease_out()`, `Easing.ease_in_out()`.
 - **Anchors**: `Anchor.top_left()`, `Anchor.top_right()`, `Anchor.center()`, `Anchor.bottom_left()`, `Anchor.bottom_right()`.
+
+---
+
+## 💡 IDE & Lua Language Server (LSP) Type Definitions
+
+For full autocompletion, field type checking, and inline documentation in VS Code / Neovim / LuaLS:
+1. Include or link [lua_definitions.lua](file:///home/omar/Desktop/cono/src/render/lua/lua_definitions.lua) in your workspace settings under `Lua.workspace.library`.
+2. All global types (`Model`, `Text`, `Container`, `Column`, `Row`, `SvgBox`, `Location`, `Coordinate`, `Anchor`, `Easing`, `FpsTarget`, `LuaWorld`, `Pager`, etc.) are annotated with `@class`, `@param`, `@return`, and `@field`.
+

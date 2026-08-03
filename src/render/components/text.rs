@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     fmt::Write as _,
     sync::{LazyLock, Mutex},
 };
@@ -22,7 +23,7 @@ pub struct Text {
     pub size: Option<u32>,
     pub weight: Option<Weight>,
     pub style: Option<FontStyle>,
-    pub cache: Option<SvgBox>,
+    pub cache: RefCell<Option<SvgBox>>,
     // pub id: Option<NodeId>,
 }
 
@@ -81,7 +82,7 @@ impl Text {
             size: None,
             weight: None,
             style: None,
-            cache: None,
+            cache: RefCell::new(None),
             // id: None,
         }
     }
@@ -204,32 +205,32 @@ impl Text {
 
     pub fn set_color(&mut self, color: impl Into<String>) {
         self.color = Some(color.into());
-        self.cache = None;
+        *self.cache.borrow_mut() = None;
     }
     pub fn set_font(&mut self, font: impl Into<String>) {
         self.font = Some(font.into());
-        self.cache = None;
+        *self.cache.borrow_mut() = None;
     }
     pub fn set_size(&mut self, size: u32) {
         self.size = Some(size);
-        self.cache = None;
+        *self.cache.borrow_mut() = None;
     }
     pub fn set_weight(&mut self, weight: Weight) {
         self.weight = Some(weight);
-        self.cache = None;
+        *self.cache.borrow_mut() = None;
     }
     pub fn set_italic(&mut self) {
         self.style = Some(FontStyle::Italic);
-        self.cache = None;
+        *self.cache.borrow_mut() = None;
     }
-    fn compile(&mut self) -> Result<(), RenderError> {
+    fn compile(&self) -> Result<(), RenderError> {
         let mut world = COMPILER
             .lock()
             .map_err(|_| RenderError::TypstCompilerError)?;
         let src = self.to_typst();
         world.raw_content(src);
         let svg = world.to_svgs()?.pop();
-        self.cache = svg;
+        *self.cache.borrow_mut() = svg;
         Ok(())
     }
 }
@@ -239,7 +240,8 @@ impl Component for Text {
         &self,
         tree: &taffy::TaffyTree,
     ) -> Result<vello::Scene, crate::render::error::RenderError> {
-        match &self.cache {
+        self.compile()?;
+        match &*self.cache.borrow() {
             Some(v) => v.render(tree),
             None => Err(RenderError::CustomError(
                 "Text hasn't been compiled!".to_string(),
@@ -248,7 +250,8 @@ impl Component for Text {
     }
 
     fn size(&self) -> std::result::Result<Size, RenderError> {
-        match &self.cache {
+        self.compile()?;
+        match &*self.cache.borrow() {
             Some(v) => v.size(),
             None => Err(RenderError::NotComputed), // won't happened
         }
@@ -259,11 +262,15 @@ impl Component for Text {
         tree: &mut taffy::TaffyTree,
     ) -> std::result::Result<taffy::NodeId, RenderError> {
         self.compile()?;
-        self.cache.as_mut().unwrap().register_layout(tree)
+
+        match &mut *self.cache.borrow_mut() {
+            Some(v) => v.register_layout(tree),
+            None => Err(RenderError::NotComputed),
+        }
     }
 
     fn layout(&self) -> Result<taffy::NodeId, crate::render::error::RenderError> {
-        match &self.cache {
+        match &*self.cache.borrow() {
             Some(v) => v.layout(),
             None => Err(RenderError::NotComputed),
         }

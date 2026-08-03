@@ -70,25 +70,25 @@ impl mlua::UserData for Text {
         fields.add_field_method_get("content", |_, this| Ok(this.content.clone()));
         fields.add_field_method_set("content", |_, this, val: String| {
             this.content = val;
-            this.cache = None;
+            *this.cache.borrow_mut() = None;
             Ok(())
         });
         fields.add_field_method_get("color", |_, this| Ok(this.color.clone()));
         fields.add_field_method_set("color", |_, this, val: Option<String>| {
             this.color = val;
-            this.cache = None;
+            *this.cache.borrow_mut() = None;
             Ok(())
         });
         fields.add_field_method_get("font", |_, this| Ok(this.font.clone()));
         fields.add_field_method_set("font", |_, this, val: Option<String>| {
             this.font = val;
-            this.cache = None;
+            *this.cache.borrow_mut() = None;
             Ok(())
         });
         fields.add_field_method_get("size", |_, this| Ok(this.size));
         fields.add_field_method_set("size", |_, this, val: Option<u32>| {
             this.size = val;
-            this.cache = None;
+            *this.cache.borrow_mut() = None;
             Ok(())
         });
     }

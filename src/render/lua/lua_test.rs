@@ -2,7 +2,7 @@ use crate::render::{animation::Model, lua::lua::register_globals};
 use mlua::Lua;
 use std::path::Path;
 
-fn create_lua_instance() -> mlua::Result<Lua> {
+pub fn create_lua_instance() -> mlua::Result<Lua> {
     let lua = Lua::new();
     register_globals(&lua)?;
     Ok(lua)
