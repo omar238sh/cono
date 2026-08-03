@@ -1,35 +1,18 @@
-use mlua::UserData;
-use taffy::{AlignItems, JustifyContent, NodeId, TaffyError, TaffyTree, prelude::length};
+use taffy::{AlignItems, JustifyContent, NodeId, TaffyTree, prelude::length};
 use vello::{Scene, kurbo::Affine};
 
-use crate::{
-    down_cast,
-    render::{
-        components::style::{Alignment, Arrangement, Padding, Style},
-        error::RenderError,
-        frame::Component,
-        models::Size,
-    },
+use crate::render::{
+    components::style::{Alignment, Arrangement, Padding, Style},
+    error::RenderError,
+    frame::Component,
+    models::Size,
 };
 
 #[derive(Clone)]
 pub struct Column {
-    contents: Vec<Box<dyn Component>>,
+    pub(crate) contents: Vec<Box<dyn Component>>,
     id: Option<NodeId>,
-    style: Style,
-}
-
-impl mlua::FromLua for Column {
-    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
-        if let mlua::Value::UserData(ud) = value {
-            return Ok(ud.borrow::<Self>()?.clone());
-        }
-        Err(mlua::Error::FromLuaConversionError {
-            from: value.type_name(),
-            to: "Column".to_string(),
-            message: Some("expected Column UserData".to_string()),
-        })
-    }
+    pub(crate) style: Style,
 }
 
 impl Column {
@@ -167,54 +150,15 @@ impl Component for Column {
     }
 }
 
-impl UserData for Column {
-    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("size", |_, this| Ok(this.style.size()));
-    }
-
-    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_function("new", |_, size: Size| Ok(Column::new(size)));
-        methods.add_method_mut("push", |_, this, val: mlua::AnyUserData| {
-            down_cast!(val, |c| {
-                this.contents.push(Box::new(c));
-            });
-            Ok(())
-        });
-        methods.add_method("arrangment", |_, this, arr: Arrangement| {
-            Ok(this.clone().arrangment(arr))
-        });
-        methods.add_method_mut("set_arrangment", |_, this, arr: Arrangement| {
-            this.set_arrangment(arr);
-            Ok(())
-        });
-        methods.add_method("alignment", |_, this, align: Alignment| {
-            Ok(this.clone().alignment(align))
-        });
-        methods.add_method_mut("set_alignment", |_, this, align: Alignment| {
-            this.set_alignment(align);
-            Ok(())
-        });
-        methods.add_method("padding", |_, this, pad: Padding| {
-            Ok(this.clone().padding(pad))
-        });
-        methods.add_method_mut("set_padding", |_, this, pad: Padding| {
-            this.set_padding(pad);
-            Ok(())
-        });
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use taffy::TaffyTree;
-    use typst::text::TextDir;
 
     use crate::render::{
-        components::{SceneGpuRenderer, column::Column, svg::SvgBox, text::Text},
+        components::{SceneGpuRenderer, column::Column, text::Text},
         error::RenderError,
         frame::Component,
         models::Size,
-        typst::{LuaWorld, pager::Pager},
     };
     #[test]
     fn test_column() -> Result<(), RenderError> {

@@ -2,7 +2,7 @@ use chrono::{Datelike, Local, Timelike};
 use std::ops::Deref;
 use typst::{
     Library, LibraryExt, World,
-    diag::{FileResult, SourceResult, Warned},
+    diag::{FileResult, Warned},
     foundations::{Bytes, Datetime},
     layout::PagedDocument,
     syntax::{FileId, Source, VirtualPath},
@@ -20,7 +20,7 @@ pub mod pager {
     #![allow(unused)]
 
     use std::fmt::Display;
-    #[deprecated]
+    // #[deprecated]
     #[derive(Clone)]
     pub struct Pager {
         content: Vec<String>,
@@ -88,7 +88,9 @@ pub mod pager {
 
         fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
             methods.add_function("new", |_, ()| Ok(Pager::new()));
-            methods.add_method("add", |_, this, content: String| Ok(this.clone().add(content)));
+            methods.add_method("add", |_, this, content: String| {
+                Ok(this.clone().add(content))
+            });
             methods.add_method("get", |_, this, page: usize| Ok(this.get(page).cloned()));
             methods.add_method("len", |_, this, ()| Ok(this.len()));
             methods.add_method("is_empty", |_, this, ()| Ok(this.is_empty()));
@@ -104,7 +106,8 @@ impl mlua::UserData for LuaWorld {
             Ok(())
         });
         methods.add_method("to_svgs", |_, this, ()| {
-            this.to_svgs().map_err(|e| mlua::Error::external(format!("{:?}", e)))
+            this.to_svgs()
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
     }
 }

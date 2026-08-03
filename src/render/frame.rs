@@ -1,5 +1,4 @@
 use std::any::Any;
-use std::sync::{LazyLock, Mutex};
 
 use image::{ImageBuffer, Rgba};
 use taffy::{NodeId, TaffyTree};
@@ -8,7 +7,7 @@ use vello::Scene;
 use crate::down_cast;
 use crate::render::components::SceneGpuRenderer;
 use crate::render::components::freebox::{FreeBox, LocatedComponent, Location};
-use crate::render::components::placeholder::{ElementPointer, PlaceHolder};
+use crate::render::components::placeholder::PlaceHolder;
 use crate::render::error::RenderError;
 use crate::render::models::Size;
 
@@ -70,7 +69,22 @@ impl mlua::UserData for Frame {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("new", |_, size: Size| Ok(Frame::new(size)));
         methods.add_method_mut("add", |_, this, val: mlua::AnyUserData| {
-            down_cast!(this, add_mut, val);
+            down_cast!(this, add_mut, val => [
+                Text,
+                Column,
+                Row,
+                Container,
+                FreeBox,
+                SvgBox,
+                LocatedComponent,
+                PlaceHolder<LocatedComponent>,
+                PlaceHolder<Text>,
+                PlaceHolder<Column>,
+                PlaceHolder<Row>,
+                PlaceHolder<Container>,
+                PlaceHolder<FreeBox>,
+                PlaceHolder<SvgBox>
+            ]);
             Ok(())
         });
     }

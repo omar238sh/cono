@@ -30,7 +30,14 @@ macro_rules! down_cast {
                 PlaceHolder<Row>,
                 PlaceHolder<Container>,
                 PlaceHolder<FreeBox>,
-                PlaceHolder<SvgBox>
+                PlaceHolder<SvgBox>,
+                ElementPointer<Text>,
+                ElementPointer<Column>,
+                ElementPointer<Row>,
+                ElementPointer<Container>,
+                ElementPointer<FreeBox>,
+                ElementPointer<SvgBox>,
+                ElementPointer<LocatedComponent>,
             ]
         );
     };
@@ -70,8 +77,7 @@ macro_rules! down_cast {
     ($val:expr, |$c:ident| $action:expr => [ $( $ty:ty ),* $(,)? ]) => {
         {
             use crate::render::components::{
-                column::Column, container::Container, freebox::{FreeBox, LocatedComponent},
-                placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
+                column::Column, container::Container, freebox::{FreeBox, LocatedComponent}, row::Row, svg::SvgBox, text::Text
             };
 
             let mut result = None;

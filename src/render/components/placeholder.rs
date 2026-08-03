@@ -9,7 +9,7 @@ use std::{
 use taffy::NodeId;
 
 use crate::render::{
-    components::{freebox::Location, placeholder::RegisterMod::Register},
+    components::{freebox::Location, placeholder::register_mod::Register},
     error::RenderError,
     frame::Component,
     models::Size,
@@ -140,19 +140,6 @@ pub struct ElementPointer<T> {
     _type: PhantomData<T>,
 }
 
-impl<T: 'static> mlua::FromLua for ElementPointer<T> {
-    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
-        if let mlua::Value::UserData(ud) = value {
-            return Ok(*ud.borrow::<Self>()?);
-        }
-        Err(mlua::Error::FromLuaConversionError {
-            from: value.type_name(),
-            to: "ElementPointer".to_string(),
-            message: Some("expected ElementPointer UserData".to_string()),
-        })
-    }
-}
-
 impl<T> Clone for ElementPointer<T> {
     fn clone(&self) -> Self {
         *self
@@ -215,127 +202,6 @@ impl<T: 'static> ElementPointer<T> {
     }
 }
 
-use crate::render::components::{
-    column::Column,
-    container::Container,
-    freebox::{FreeBox, LocatedComponent},
-    row::Row,
-    svg::SvgBox,
-    text::Text,
-};
-
-pub fn invoke_lua_with_component_mut(
-    lua: &mlua::Lua,
-    comp: &mut dyn Component,
-    func: mlua::Function,
-) -> mlua::Result<()> {
-    invoke_lua_with_component_mut_with_progress(lua, comp, func, None)
-}
-
-pub fn invoke_lua_with_component_mut_with_progress(
-    _lua: &mlua::Lua,
-    comp: &mut dyn Component,
-    func: mlua::Function,
-    progress: Option<f64>,
-) -> mlua::Result<()> {
-    macro_rules! call_func {
-        ($ty:ty) => {
-            if let Some(val) = comp.as_any_mut().downcast_mut::<$ty>() {
-                let temp = val.clone();
-                if let Some(p) = progress {
-                    func.call::<()>((temp.clone(), p))?;
-                } else {
-                    func.call::<()>(temp.clone())?;
-                }
-                *val = temp;
-                return Ok(());
-            }
-        };
-    }
-
-    call_func!(LocatedComponent);
-    call_func!(Text);
-    call_func!(Column);
-    call_func!(Row);
-    call_func!(Container);
-    call_func!(FreeBox);
-    call_func!(SvgBox);
-
-    Err(mlua::Error::external(
-        "Unknown component type in ElementPointer::with_mut",
-    ))
-}
-
-pub fn invoke_lua_with_component(
-    lua: &mlua::Lua,
-    comp: &dyn Component,
-    func: mlua::Function,
-) -> mlua::Result<()> {
-    if let Some(lc) = comp.as_any().downcast_ref::<LocatedComponent>() {
-        return func.call::<()>(lc.clone());
-    }
-    if let Some(t) = comp.as_any().downcast_ref::<Text>() {
-        return func.call::<()>(t.clone());
-    }
-    if let Some(c) = comp.as_any().downcast_ref::<Column>() {
-        return func.call::<()>(c.clone());
-    }
-    if let Some(r) = comp.as_any().downcast_ref::<Row>() {
-        return func.call::<()>(r.clone());
-    }
-    if let Some(cnt) = comp.as_any().downcast_ref::<Container>() {
-        return func.call::<()>(cnt.clone());
-    }
-    if let Some(f) = comp.as_any().downcast_ref::<FreeBox>() {
-        return func.call::<()>(f.clone());
-    }
-    if let Some(s) = comp.as_any().downcast_ref::<SvgBox>() {
-        return func.call::<()>(s.clone());
-    }
-    Err(mlua::Error::external(
-        "Unknown component type in ElementPointer::with",
-    ))
-}
-
-impl<T: 'static> mlua::UserData for ElementPointer<T> {
-    fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("id", |_, this| Ok(this.id.0));
-    }
-
-    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("drop_component", |_, this, ()| {
-            this.drop_component();
-            Ok(())
-        });
-
-        methods.add_method("with", |lua, this, func: mlua::Function| {
-            let register_guard = GLOBAL_REGISTER
-                .lock()
-                .map_err(|_| mlua::Error::external("Lock Error: GLOBAL_REGISTER"))?;
-            let box_comp = register_guard
-                .get(&this.id)
-                .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
-            invoke_lua_with_component(lua, &**box_comp, func)
-        });
-
-        methods.add_method_mut("with_mut", |lua, this, func: mlua::Function| {
-            let mut register_guard = GLOBAL_REGISTER
-                .lock()
-                .map_err(|_| mlua::Error::external("Lock Error: GLOBAL_REGISTER"))?;
-            let box_comp = register_guard
-                .get_mut(&this.id)
-                .map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
-            invoke_lua_with_component_mut(lua, &mut **box_comp, func)
-        });
-    }
-}
-
-impl<C: Component + Clone + 'static> mlua::UserData for PlaceHolder<C> {
-    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("pointer", |_, this, ()| Ok(this.pointer));
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ElementId(u64);
 
@@ -346,7 +212,7 @@ impl ElementId {
     }
 }
 
-pub mod RegisterMod {
+pub mod register_mod {
     use std::collections::HashMap;
 
     use crate::render::{

@@ -1,4 +1,4 @@
-use cono::{lua::register_globals, render::animation::Model};
+use crate::render::{animation::Model, lua::lua::register_globals};
 use mlua::Lua;
 use std::path::Path;
 
@@ -188,7 +188,7 @@ fn test_lua_full_video_render() -> mlua::Result<()> {
 
     let script = format!(
         r##"
-        local model = Model.new(Size.youtube_shorts(), FpsTarget.f30())
+        local model = Model.new(Size.youtube_shorts(), FpsTarget.f120())
 
         local svg = SvgBox.new([[<svg width="100" height="100"><circle cx="50" cy="50" r="40" fill="blue"/></svg>]])
         local card = Container.new(svg)
@@ -207,8 +207,12 @@ fn test_lua_full_video_render() -> mlua::Result<()> {
         local ptr = model:spawn_located(card, loc)
         model:with_pointer(ptr, function(c) c:set_anchor(Anchor.center()) end)
 
-        model:animate(ptr, 0.5, Easing.ease_out(), function(c , a)
-            c.location:set_progress(a)
+        model:animate_easing(ptr, 5, Easing.ease_out(), function(c , a)
+            c:with_mut(
+                function(o)
+                    o:update_progress(a)
+                end
+            ) 
         end)
 
         model:wait(0.5)

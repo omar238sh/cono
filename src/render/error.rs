@@ -1,5 +1,4 @@
 use taffy::TaffyError;
-use typst::{diag::SourceDiagnostic, ecow::EcoVec};
 #[derive(thiserror::Error, Debug)]
 pub enum RenderError {
     #[error("failed to parse SVG: {0}")]
