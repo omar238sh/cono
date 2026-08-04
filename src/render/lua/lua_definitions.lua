@@ -490,7 +490,7 @@ function SvgBox:set_scale(factor) end
 
 
 ---=============================================================================
---- Coordinate & Anchor & Location & LocatedComponent & FreeBox
+--- Coordinate & Anchor & Location & Opacity & Angle & LocatedComponent & FreeBox
 ---=============================================================================
 
 ---@class Coordinate
@@ -515,6 +515,10 @@ function Coordinate.zero() end
 ---@param end_coord Coordinate
 ---@return Coordinate
 function Coordinate.with_progress(start, end_coord) end
+
+--- Updates animation progress value (0.0 to 1.0).
+---@param p number Progress fraction
+function Coordinate:update_progress(p) end
 
 --- Scales coordinate (chainable).
 ---@param factor number
@@ -572,6 +576,12 @@ function Location.zero() end
 ---@return Location
 function Location.center(anchor) end
 
+--- Creates an interpolated Location between loc1 and loc2.
+---@param loc1 Location
+---@param loc2 Location
+---@return Location
+function Location.with_progress(loc1, loc2) end
+
 --- Scales location coordinates (chainable).
 ---@param factor number
 ---@return Location
@@ -584,11 +594,59 @@ function Location:as_topleft(size) end
 
 --- Updates animation progress (0.0 to 1.0) for interpolated coordinates.
 ---@param p number Progress fraction
-function Location:set_progress(p) end
+function Location:update_progress(p) end
+
+
+---@class Opacity
+Opacity = {}
+
+--- Creates an absolute Opacity value (0.0 to 1.0).
+---@param value number Opacity value (0.0 transparent to 1.0 opaque)
+---@return Opacity
+function Opacity.new(value) end
+
+--- Creates an interpolated Opacity value across animation progress.
+---@param start number Starting opacity (0.0 to 1.0)
+---@param end_val number Ending opacity (0.0 to 1.0)
+---@return Opacity
+function Opacity.with_progress(start, end_val) end
+
+--- Updates opacity progress (0.0 to 1.0).
+---@param p number Progress fraction
+function Opacity:update_progress(p) end
+
+--- Evaluates current numeric opacity value.
+---@return number
+function Opacity:value() end
+
+
+---@class Angle
+Angle = {}
+
+--- Creates an absolute Angle value in degrees.
+---@param value number Angle in degrees
+---@return Angle
+function Angle.new(value) end
+
+--- Creates an interpolated Angle value in degrees across animation progress.
+---@param start number Starting angle in degrees
+---@param end_val number Ending angle in degrees
+---@return Angle
+function Angle.with_progress(start, end_val) end
+
+--- Updates angle progress (0.0 to 1.0).
+---@param p number Progress fraction
+function Angle:update_progress(p) end
+
+--- Evaluates current numeric angle value in radians.
+---@return number
+function Angle:value() end
 
 
 ---@class LocatedComponent
 ---@field location Location Component location
+---@field opacity Opacity Component opacity
+---@field angle Angle Rotation angle
 LocatedComponent = {}
 
 --- Wraps a component inside a LocatedComponent.
@@ -596,7 +654,7 @@ LocatedComponent = {}
 ---@return LocatedComponent
 function LocatedComponent.new(val) end
 
---- Updates location progress value (0.0 to 1.0).
+--- Updates progress value (0.0 to 1.0) for location, opacity, and angle.
 ---@param progress number
 function LocatedComponent:update_progress(progress) end
 
@@ -617,6 +675,24 @@ function LocatedComponent:anchor(anchor) end
 --- Sets anchor in-place.
 ---@param anchor Anchor
 function LocatedComponent:set_anchor(anchor) end
+
+--- Sets opacity (chainable).
+---@param op Opacity
+---@return LocatedComponent
+function LocatedComponent:opacity(op) end
+
+--- Sets opacity in-place.
+---@param op Opacity
+function LocatedComponent:set_opacity(op) end
+
+--- Sets rotation angle (chainable).
+---@param ang Angle
+---@return LocatedComponent
+function LocatedComponent:angle(ang) end
+
+--- Sets rotation angle in-place.
+---@param ang Angle
+function LocatedComponent:set_angle(ang) end
 
 --- Shifts component by relative location delta.
 ---@param shift_loc Location

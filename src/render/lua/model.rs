@@ -1,6 +1,18 @@
 use std::path::Path;
 
-use crate::{down_cast, render::{animation::{Easing, FpsTarget, Model}, components::{freebox::Location, placeholder::{ElementPointer, PlaceHolder}}, frame::Frame, models::Size, scene::Scene}};
+use crate::{
+    down_cast,
+    render::{
+        animation::{Easing, FpsTarget, Model},
+        components::{
+            freebox::Location,
+            placeholder::{ElementPointer, PlaceHolder},
+        },
+        frame::Frame,
+        models::Size,
+        scene::Scene,
+    },
+};
 
 impl mlua::FromLua for Easing {
     fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
@@ -103,14 +115,9 @@ impl mlua::UserData for Model {
         methods.add_method_mut(
             "spawn_located",
             |_, this, (val, loc): (mlua::AnyUserData, Location)| {
-                let located  = down_cast!(val, |c| {
-                    LocatedComponent {
-                        child: Box::new(c),
-                        location: loc.clone(),
-                    }
-                }).ok_or_else(|| {mlua::Error::external(format!("Failed to downcast commponent"))});
-
-                this.spawn(located?).map_err(|e| mlua::Error::external(format!("{:?}", e)))
+                down_cast!(val, |c| {
+                    this.spawn_located(c , loc.clone()).map_err(|e| {mlua::Error::external(e.to_string())})?
+                }).ok_or_else(|| {mlua::Error::external(format!("Failed to downcast commponent"))})                
             },
         );
 

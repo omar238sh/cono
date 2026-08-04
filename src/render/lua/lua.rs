@@ -5,14 +5,16 @@ use crate::render::{
     components::{
         column::Column,
         container::Container,
-        freebox::{Anchor, Coordinate, FreeBox, LocatedComponent, Location},
+        freebox::{Anchor, Angle, Coordinate, FreeBox, LocatedComponent, Location, Opacity},
         placeholder::PlaceHolder,
         row::Row,
         style::{Alignment, Arrangement, Padding, Style},
         svg::SvgBox,
         text::{FontStyle, Text, Weight},
     },
+    frame::Frame,
     models::{Size, register_size},
+    scene::{RenderedFrame, Scene},
     typst::{LuaWorld, pager::Pager},
 };
 
@@ -57,6 +59,8 @@ pub fn register_globals(lua: &Lua) -> mlua::Result<()> {
     globals.set("Coordinate", lua.create_proxy::<Coordinate>()?)?;
     globals.set("Location", lua.create_proxy::<Location>()?)?;
     globals.set("Anchor", lua.create_proxy::<Anchor>()?)?;
+    globals.set("Opacity", lua.create_proxy::<Opacity>()?)?;
+    globals.set("Angle", lua.create_proxy::<Angle>()?)?;
     globals.set("FpsTarget", lua.create_proxy::<FpsTarget>()?)?;
     globals.set("Arrangement", lua.create_proxy::<Arrangement>()?)?;
     globals.set("Alignment", lua.create_proxy::<Alignment>()?)?;
@@ -64,6 +68,9 @@ pub fn register_globals(lua: &Lua) -> mlua::Result<()> {
     globals.set("Style", lua.create_proxy::<Style>()?)?;
     globals.set("LuaWorld", lua.create_proxy::<LuaWorld>()?)?;
     globals.set("Pager", lua.create_proxy::<Pager>()?)?;
+    globals.set("Frame", lua.create_proxy::<Frame>()?)?;
+    globals.set("Scene", lua.create_proxy::<Scene>()?)?;
+    globals.set("RenderedFrame", lua.create_proxy::<RenderedFrame>()?)?;
 
     Ok(())
 }

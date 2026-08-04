@@ -2,7 +2,7 @@ use crate::{
     down_cast,
     render::{
         components::{
-            freebox::{Anchor, Coordinate, FreeBox, LocatedComponent, Location},
+            freebox::{Anchor, Angle, Coordinate, FreeBox, LocatedComponent, Location, Opacity},
             placeholder::PlaceHolder,
         },
         models::Size,
@@ -74,6 +74,60 @@ impl mlua::FromLua for LocatedComponent {
     }
 }
 
+impl mlua::FromLua for Opacity {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(ud.borrow::<Self>()?.clone());
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Opacity".to_string(),
+            message: Some("expected Opacity UserData".to_string()),
+        })
+    }
+}
+
+impl mlua::FromLua for Angle {
+    fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
+        if let mlua::Value::UserData(ud) = value {
+            return Ok(ud.borrow::<Self>()?.clone());
+        }
+        Err(mlua::Error::FromLuaConversionError {
+            from: value.type_name(),
+            to: "Angle".to_string(),
+            message: Some("expected Angle UserData".to_string()),
+        })
+    }
+}
+
+impl mlua::UserData for Opacity {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("new", |_, v: f64| Ok(Opacity::new(v)));
+        methods.add_function("with_progress", |_, (start, end): (f64, f64)| {
+            Ok(Opacity::with_progress(start, end))
+        });
+        methods.add_method_mut("update_progress", |_, this, p: f64| {
+            this.update_progress(p);
+            Ok(())
+        });
+        methods.add_method("value", |_, this, ()| Ok(this.value()));
+    }
+}
+
+impl mlua::UserData for Angle {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_function("new", |_, v: f64| Ok(Angle::new(v)));
+        methods.add_function("with_progress", |_, (start, end): (f64, f64)| {
+            Ok(Angle::with_progress(start, end))
+        });
+        methods.add_method_mut("update_progress", |_, this, p: f64| {
+            this.update_progress(p);
+            Ok(())
+        });
+        methods.add_method("value", |_, this, ()| Ok(this.value()));
+    }
+}
+
 impl mlua::UserData for Coordinate {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("absolute", |_, v: f64| Ok(Coordinate::absolute(v)));
@@ -90,6 +144,10 @@ impl mlua::UserData for Coordinate {
             Ok(this.to_absolute(max_len))
         });
         methods.add_method("to_num", |_, this, max_len: f64| Ok(this.to_num(max_len)));
+        methods.add_method_mut("update_progress", |_, this, p: f64| {
+            this.update_progress(p);
+            Ok(())
+        });
 
         methods.add_meta_method(mlua::MetaMethod::Add, |_, this, other: Coordinate| {
             Ok(this.clone() + other)
@@ -154,6 +212,9 @@ impl mlua::UserData for Location {
         });
         methods.add_function("zero", |_, ()| Ok(Location::zero()));
         methods.add_function("center", |_, anchor: Anchor| Ok(Location::center(anchor)));
+        methods.add_function("with_progress", |_, (loc1, loc2): (Location, Location)| {
+            Ok(Location::with_progress(loc1, loc2))
+        });
 
         methods.add_method("scale", |_, this, factor: f64| {
             Ok(this.clone().scale(factor))
@@ -162,9 +223,9 @@ impl mlua::UserData for Location {
             "as_topleft",
             |_, this, size: Size| Ok(this.as_topleft(size)),
         );
-        methods.add_method_mut("set_progress", |_, this, p: f64| {
-            this.set_progress(p)
-                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        methods.add_method_mut("update_progress", |_, this, p: f64| {
+            this.update_progress(p);
+            Ok(())
         });
 
         methods.add_meta_method(mlua::MetaMethod::Add, |_, this, other: Location| {
@@ -186,6 +247,16 @@ impl mlua::UserData for LocatedComponent {
             this.set_location(loc);
             Ok(())
         });
+        fields.add_field_method_get("opacity", |_, this| Ok(this.opacity.clone()));
+        fields.add_field_method_set("opacity", |_, this, op: Opacity| {
+            this.opacity = op;
+            Ok(())
+        });
+        fields.add_field_method_get("angle", |_, this| Ok(this.angle.clone()));
+        fields.add_field_method_set("angle", |_, this, ang: Angle| {
+            this.angle = ang;
+            Ok(())
+        });
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
@@ -195,9 +266,7 @@ impl mlua::UserData for LocatedComponent {
         });
 
         methods.add_method_mut("update_progress", |_, this, progress| {
-            this.location
-                .set_progress(progress)
-                .map_err(|e| mlua::Error::external(format!("{}", e)))?;
+            this.update_progress(progress);
             Ok(())
         });
 
@@ -213,6 +282,24 @@ impl mlua::UserData for LocatedComponent {
         });
         methods.add_method_mut("set_anchor", |_, this, anchor: Anchor| {
             this.set_anchor(anchor);
+            Ok(())
+        });
+        methods.add_method("opacity", |_, this, op: Opacity| {
+            let mut c = this.clone();
+            c.opacity = op;
+            Ok(c)
+        });
+        methods.add_method_mut("set_opacity", |_, this, op: Opacity| {
+            this.opacity = op;
+            Ok(())
+        });
+        methods.add_method("angle", |_, this, ang: Angle| {
+            let mut c = this.clone();
+            c.angle = ang;
+            Ok(c)
+        });
+        methods.add_method_mut("set_angle", |_, this, ang: Angle| {
+            this.angle = ang;
             Ok(())
         });
         methods.add_method_mut("shift", |_, this, shift_loc: Location| {

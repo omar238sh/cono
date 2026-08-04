@@ -107,7 +107,7 @@ impl Component for Container {
 
         let mut scene = Scene::new();
         let size = self.computed_size(tree)?;
-        let rect = Rect::new(0.0, 0.0, 0.0 + size.width, 0.0 + size.height)
+        let rect = Rect::new(0.0, 0.0, size.width, size.height)
             .to_rounded_rect(self.border_radius);
         if let Some(background_color) = self.background_color {
             scene.fill(
@@ -119,9 +119,15 @@ impl Component for Container {
             );
         }
 
-        if let Some(border_color) = self.border_color {
-            let stroke = vello::kurbo::Stroke::new(self.border_width);
-            scene.stroke(&stroke, Affine::IDENTITY, border_color, None, &rect);
+        let has_clip = self.border_radius > 0.0;
+        if has_clip {
+            scene.push_layer(
+                vello::peniko::Fill::NonZero,
+                vello::peniko::Mix::Normal,
+                1.0,
+                Affine::IDENTITY,
+                &rect,
+            );
         }
 
         scene.append(
@@ -131,6 +137,20 @@ impl Component for Container {
                 child_id.location.y as f64,
             ))),
         );
+
+        if has_clip {
+            scene.pop_layer();
+        }
+
+        if let Some(border_color) = self.border_color {
+            if self.border_width > 0.0 {
+                let stroke = vello::kurbo::Stroke::new(self.border_width);
+                let half_bw = self.border_width / 2.0;
+                let stroke_rect = Rect::new(half_bw, half_bw, size.width - half_bw, size.height - half_bw)
+                    .to_rounded_rect((self.border_radius - half_bw).max(0.0));
+                scene.stroke(&stroke, Affine::IDENTITY, border_color, None, &stroke_rect);
+            }
+        }
 
         Ok(scene)
     }

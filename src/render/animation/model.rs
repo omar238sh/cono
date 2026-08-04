@@ -414,7 +414,7 @@ mod tests {
         })?;
         // Animate pointer using generic animate_pointer with Easing
         model.animate_pointer(controller, 1.0, Easing::EaseInOut, |lc, progress| {
-            lc.location.set_progress(progress).unwrap();
+            lc.location.update_progress(progress);
         })?;
 
         let s = model2 * model;

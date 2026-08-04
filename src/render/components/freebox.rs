@@ -1,8 +1,15 @@
-use std::ops::{Add, Deref, DerefMut, Sub};
+use std::{
+    f64::consts::PI,
+    ops::{Add, Deref, DerefMut, Sub},
+};
 
 use crate::render::{error::RenderError, frame::Component, models::Size};
 use taffy::{NodeId, prelude::length};
-use vello::{Scene, kurbo::Affine};
+use vello::{
+    Scene,
+    kurbo::{Affine, Point, Rect},
+    peniko::{Fill, Mix},
+};
 
 #[derive(Clone)]
 pub struct FreeBox {
@@ -63,6 +70,14 @@ impl Coordinate {
         }
     }
 
+    pub fn update_progress(&mut self, p: f64) {
+        match self {
+            Self::WithProgress { progress, .. } => {
+                *progress = p;
+            }
+            _ => {}
+        }
+    }
     pub fn to_absolute(&self, max_length: f64) -> Self {
         match self {
             Coordinate::Absolute(c) => Self::Absolute(c.clone()),
@@ -191,17 +206,100 @@ impl Sub for Location {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Opacity {
+    Absolute(f64),
+    Progress { start: f64, end: f64, progress: f64 },
+}
+
+impl Opacity {
+    pub fn new(value: f64) -> Self {
+        Self::Absolute(value)
+    }
+
+    pub fn with_progress(start: f64, end: f64) -> Self {
+        Self::Progress {
+            start,
+            end,
+            progress: 0.0,
+        }
+    }
+
+    pub fn update_progress(&mut self, p: f64) {
+        match self {
+            Opacity::Absolute(_) => {}
+            Opacity::Progress { progress, .. } => *progress = p,
+        }
+    }
+
+    pub fn value(&self) -> f64 {
+        match self {
+            Self::Absolute(v) => *v,
+            Self::Progress {
+                start,
+                end,
+                progress,
+            } => *start + *progress * (end - start),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Angle {
+    Absolute(f64),
+    Progress { start: f64, end: f64, progress: f64 },
+}
+
+impl Angle {
+    pub fn new(value: f64) -> Self {
+        Self::Absolute(value)
+    }
+
+    pub fn with_progress(start: f64, end: f64) -> Self {
+        Self::Progress {
+            start,
+            end,
+            progress: 0.0,
+        }
+    }
+
+    pub fn update_progress(&mut self, p: f64) {
+        match self {
+            Self::Absolute(_) => {}
+            Self::Progress { progress, .. } => *progress = p,
+        }
+    }
+
+    pub fn value(&self) -> f64 {
+        match self {
+            Self::Absolute(v) => *v,
+            Self::Progress {
+                start,
+                end,
+                progress,
+            } => (*start + *progress * (end - start)) / 180.0 * PI,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct LocatedComponent {
     pub child: Box<dyn Component>,
     pub location: Location,
+    pub opacity: Opacity,
+    pub rotation_anchor: Point,
+    pub angle: Angle,
 }
 
 impl LocatedComponent {
     pub fn new<C: Component + 'static>(child: C) -> Self {
+        let size = child.size().unwrap();
         Self {
             child: Box::new(child),
             location: Location::zero(),
+            opacity: Opacity::new(1.0),
+            angle: Angle::new(0.0),
+            rotation_anchor: Point::new(size.width / 2.0, size.height / 2.0),
         }
     }
 
@@ -229,12 +327,28 @@ impl LocatedComponent {
         self
     }
 
+    pub fn opacity(mut self, opacity: Opacity) -> Self {
+        self.opacity = opacity;
+        self
+    }
+
+    pub fn angle(mut self, angle: Angle) -> Self {
+        self.angle = angle;
+        self
+    }
+
     pub fn set_location(&mut self, location: Location) {
         self.location = location;
     }
 
     pub fn set_anchor(&mut self, anchor: Anchor) {
         self.location.anchor = anchor;
+    }
+
+    pub fn update_progress(&mut self, progress: f64) {
+        self.location.update_progress(progress);
+        self.opacity.update_progress(progress);
+        self.angle.update_progress(progress);
     }
 
     pub fn shift(&mut self, shift: Location) {
@@ -305,6 +419,14 @@ impl Location {
         }
     }
 
+    pub fn with_progress(loc1: Self, loc2: Self) -> Self {
+        let loc = Self::new(
+            Coordinate::with_progress(loc1.x, loc2.x),
+            Coordinate::with_progress(loc1.y, loc2.y),
+        );
+        loc
+    }
+
     pub fn scale(mut self, factor: f64) -> Self {
         self.x = self.x.scale(factor);
         self.y = self.y.scale(factor);
@@ -356,30 +478,9 @@ impl Location {
         }
     }
 
-    pub fn set_progress(&mut self, new_progrss: f64) -> Result<(), RenderError> {
-        match &mut self.x {
-            Coordinate::WithProgress { progress, .. } => {
-                *progress = new_progrss;
-            }
-            _ => {
-                return Err(RenderError::CustomError(
-                    "Dosen't accept progress".to_string(),
-                ));
-            }
-        }
-
-        match &mut self.y {
-            Coordinate::WithProgress { progress, .. } => {
-                *progress = new_progrss;
-            }
-            _ => {
-                return Err(RenderError::CustomError(
-                    "Dosen't accept progress".to_string(),
-                ));
-            }
-        }
-
-        Ok(())
+    pub fn update_progress(&mut self, p: f64) {
+        self.x.update_progress(p);
+        self.y.update_progress(p);
     }
 }
 
@@ -417,13 +518,24 @@ impl Component for FreeBox {
         for component in &self.contents {
             let child_size = component.size()?;
             let Location { x, y, .. } = component.location.as_topleft(child_size);
-            scene.append(
-                &component.render(tree)?,
-                Some(Affine::translate((
-                    x.to_num(self.size.width),
-                    y.to_num(self.size.height),
-                ))),
+            let anchor_point = Point::new(child_size.width / 2.0, child_size.height / 2.0);
+            let transform =
+                Affine::translate((x.to_num(self.size.width), y.to_num(self.size.height)))
+                    * Affine::rotate_about(component.angle.value(), anchor_point);
+            let rect = Rect::new(0.0, 0.0, child_size.width, child_size.height);
+            dbg!((component.opacity.clone(), component.angle.clone()));
+            scene.push_layer(
+                Fill::NonZero,
+                Mix::Normal,
+                component.opacity.value() as f32,
+                transform,
+                &rect,
             );
+
+            let s = component.render(tree)?;
+            scene.append(&s, Some(transform));
+
+            scene.pop_layer();
         }
 
         Ok(scene)
@@ -548,6 +660,31 @@ mod tests {
             .save("./tests/freebox_compose.png")
             .map_err(|a| RenderError::CustomError(format!("Cannot Save png {a}")))?;
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_freebox_rotation_and_opacity() -> Result<(), RenderError> {
+        use super::{Angle, Opacity};
+        let mut tree = TaffyTree::new();
+        let text = Text::new("Rotated & Faded").color("#FFFFFF").size(60);
+        let located = LocatedComponent::new(text)
+            .location(Location::center(Anchor::Center))
+            .opacity(Opacity::new(0.5))
+            .angle(Angle::new(45.0));
+
+        let mut freebox = FreeBox::new(Size::youtube_video()).with_child(located);
+        freebox.register_layout(&mut tree)?;
+
+        let mut renderer = SceneGpuRenderer::new()?;
+        let image = renderer.render_to_image(
+            &freebox.render(&tree)?,
+            freebox.size()?.width as u32,
+            freebox.size()?.height as u32,
+        )?;
+
+        assert_eq!(image.width(), 1920);
+        assert_eq!(image.height(), 1080);
         Ok(())
     }
 }
