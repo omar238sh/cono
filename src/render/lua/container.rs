@@ -96,6 +96,11 @@ impl mlua::UserData for Container {
             a
         });
 
+        methods.add_function("from_size", |_, size: Size| {
+            let a = Container::from_size(size);
+            Ok(a)
+        });
+
         methods.add_method("background", |_, this, color_val: mlua::Value| {
             let col = parse_color_from_lua(color_val)?;
             Ok(this.clone().background(col))

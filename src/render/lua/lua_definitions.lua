@@ -391,6 +391,11 @@ Container = {}
 ---@return Container
 function Container.new(child) end
 
+---@param size Size
+---@return Container
+function Container.from_size(size) end
+
+
 --- Sets background color (chainable).
 ---@param color_val Color Color string or table
 ---@return Container

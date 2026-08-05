@@ -162,6 +162,8 @@ impl Model {
         for comp in &self.components {
             let mut comp = comp.clone();
             comp.sync_location();
+            comp.sync_angle();
+            comp.sync_opacity();
             frame.content.add(comp);
         }
         frame

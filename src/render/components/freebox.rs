@@ -272,7 +272,7 @@ impl Angle {
 
     pub fn value(&self) -> f64 {
         match self {
-            Self::Absolute(v) => *v,
+            Self::Absolute(v) => *v / 180.0 * PI,
             Self::Progress {
                 start,
                 end,
@@ -293,12 +293,15 @@ pub struct LocatedComponent {
 
 impl LocatedComponent {
     pub fn new<C: Component + 'static>(child: C) -> Self {
-        let size = child.size().unwrap();
+        let size = child.size().unwrap_or(Size::new(0.0, 0.0));
+        let location = child.get_location().unwrap_or_else(Location::zero);
+        let opacity = child.get_opacity().unwrap_or_else(|| Opacity::new(1.0));
+        let angle = child.get_angle().unwrap_or_else(|| Angle::new(0.0));
         Self {
             child: Box::new(child),
-            location: Location::zero(),
-            opacity: Opacity::new(1.0),
-            angle: Angle::new(0.0),
+            location,
+            opacity,
+            angle,
             rotation_anchor: Point::new(size.width / 2.0, size.height / 2.0),
         }
     }
@@ -307,6 +310,12 @@ impl LocatedComponent {
         if let Some(loc) = self.child.get_location() {
             self.location = loc;
         }
+        if let Some(op) = self.child.get_opacity() {
+            self.opacity = op;
+        }
+        if let Some(ang) = self.child.get_angle() {
+            self.angle = ang;
+        }
     }
 
     pub fn get_location(&self) -> Location {
@@ -314,6 +323,34 @@ impl LocatedComponent {
             loc
         } else {
             self.location.clone()
+        }
+    }
+
+    pub fn sync_angle(&mut self) {
+        if let Some(angle) = self.child.get_angle() {
+            self.angle = angle;
+        }
+    }
+
+    pub fn sync_opacity(&mut self) {
+        if let Some(opacity) = self.child.get_opacity() {
+            self.opacity = opacity;
+        }
+    }
+
+    pub fn get_angle(&self) -> Angle {
+        if let Some(angle) = self.child.get_angle() {
+            angle
+        } else {
+            self.angle.clone()
+        }
+    }
+
+    pub fn get_opacity(&self) -> Opacity {
+        if let Some(opacity) = self.child.get_opacity() {
+            opacity
+        } else {
+            self.opacity.clone()
         }
     }
 
@@ -383,6 +420,8 @@ impl Component for LocatedComponent {
 
     fn register_layout(&mut self, tree: &mut taffy::TaffyTree) -> Result<NodeId, RenderError> {
         self.sync_location();
+        self.sync_angle();
+        self.sync_opacity();
         self.child.register_layout(tree)
     }
 
@@ -392,6 +431,14 @@ impl Component for LocatedComponent {
 
     fn get_location(&self) -> Option<Location> {
         Some(self.get_location())
+    }
+
+    fn get_angle(&self) -> Option<Angle> {
+        Some(self.get_angle())
+    }
+
+    fn get_opacity(&self) -> Option<Opacity> {
+        Some(self.get_opacity())
     }
 
     fn locate(self) -> LocatedComponent
@@ -517,17 +564,19 @@ impl Component for FreeBox {
 
         for component in &self.contents {
             let child_size = component.size()?;
-            let Location { x, y, .. } = component.location.as_topleft(child_size);
+            let Location { x, y, .. } = component.get_location().as_topleft(child_size);
+            let opacity = component.get_opacity();
+            let angle = component.get_angle();
             let anchor_point = Point::new(child_size.width / 2.0, child_size.height / 2.0);
             let transform =
                 Affine::translate((x.to_num(self.size.width), y.to_num(self.size.height)))
-                    * Affine::rotate_about(component.angle.value(), anchor_point);
+                    * Affine::rotate_about(angle.value(), anchor_point);
             let rect = Rect::new(0.0, 0.0, child_size.width, child_size.height);
-            dbg!((component.opacity.clone(), component.angle.clone()));
+
             scene.push_layer(
                 Fill::NonZero,
                 Mix::Normal,
-                component.opacity.value() as f32,
+                opacity.value() as f32,
                 transform,
                 &rect,
             );
@@ -682,7 +731,7 @@ mod tests {
             freebox.size()?.width as u32,
             freebox.size()?.height as u32,
         )?;
-
+        image.save("./tests/rotate.png").unwrap();
         assert_eq!(image.width(), 1920);
         assert_eq!(image.height(), 1080);
         Ok(())

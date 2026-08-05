@@ -9,7 +9,10 @@ use std::{
 use taffy::NodeId;
 
 use crate::render::{
-    components::{freebox::Location, placeholder::register_mod::Register},
+    components::{
+        freebox::{LocatedComponent, Location},
+        placeholder::register_mod::Register,
+    },
     error::RenderError,
     frame::Component,
     models::Size,
@@ -97,6 +100,14 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
         self.pointer.with(|s| s.get_location()).unwrap_or(None)
     }
 
+    fn get_opacity(&self) -> Option<super::freebox::Opacity> {
+        self.pointer.with(|s| s.get_opacity()).unwrap_or(None)
+    }
+
+    fn get_angle(&self) -> Option<super::freebox::Angle> {
+        self.pointer.with(|s| s.get_angle()).unwrap_or(None)
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -105,33 +116,36 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
         self
     }
 
-    // fn locate(self) -> LocatedComponent
-    // where
-    //     Self: Sized + 'static,
-    // {
-    //     let register_guard = GLOBAL_REGISTER
-    //         .lock()
-    //         .map_err(|_| {
-    //             RenderError::CustomError(
-    //                 "Lock Error : You Cannot Do any thing about this".to_string(),
-    //             )
-    //         })
-    //         .unwrap();
+    fn locate(self) -> LocatedComponent
+    where
+        Self: Sized + 'static,
+    {
+        let register_guard = GLOBAL_REGISTER
+            .lock()
+            .map_err(|_| {
+                RenderError::CustomError(
+                    "Lock Error : You Cannot Do any thing about this".to_string(),
+                )
+            })
+            .unwrap();
 
-    //     let real_component = register_guard
-    //         .get(&self.pointer.id)
-    //         .unwrap()
-    //         .as_any()
-    //         .downcast_ref::<LocatedComponent>();
+        let real_component = register_guard
+            .get(&self.pointer.id)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<LocatedComponent>();
 
-    //     match real_component {
-    //         Some(v) => LocatedComponent {
-    //             child: Box::new(self),
-    //             location: v.get_location(),
-    //         },
-    //         None => LocatedComponent::new(self),
-    //     }
-    // }
+        match real_component {
+            Some(v) => LocatedComponent {
+                child: Box::new(self),
+                location: v.get_location(),
+                opacity: v.get_opacity(),
+                rotation_anchor: v.rotation_anchor,
+                angle: v.get_angle(),
+            },
+            None => LocatedComponent::new(self),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]

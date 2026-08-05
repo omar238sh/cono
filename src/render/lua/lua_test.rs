@@ -230,3 +230,36 @@ fn test_lua_full_video_render() -> mlua::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn test_lua_opacity_and_angle_progression() -> mlua::Result<()> {
+    let lua = create_lua_instance()?;
+
+    let script = r##"
+        local model = Model.new(Size.youtube_video(), FpsTarget.f30())
+        local txt = Text.new("Fade & Rotate")
+
+        local loc = Location.new(Coordinate.percentage(0.5), Coordinate.percentage(0.5))
+        local ptr = model:spawn_located(txt, loc)
+
+        model:with_pointer(ptr, function(c)
+            c:set_anchor(Anchor.center())
+            c:set_opacity(Opacity.with_progress(0.0, 1.0))
+            c:set_angle(Angle.with_progress(-45.0, 45.0))
+        end)
+
+        model:animate_pointer(ptr, 1.0, Easing.linear(), function(c, progress)
+            c:update_progress(progress)
+        end)
+
+        return model
+    "##;
+
+    let model: Model = lua.load(script).eval()?;
+    let frame = model.create_frame();
+    // Test that the content contains the located component with updated opacity/angle
+    assert_eq!(frame.content.contents.len(), 1);
+    let comp = &frame.content.contents[0];
+    assert_eq!(comp.get_opacity().value(), 1.0);
+    Ok(())
+}

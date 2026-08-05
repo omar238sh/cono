@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use taffy::{JustifyContent, NodeId, TaffyTree, prelude::length};
+use taffy::{JustifyContent, NodeId, Style, TaffyTree, prelude::length};
 use vello::{
     Scene,
     kurbo::{Affine, Rect},
@@ -44,6 +44,10 @@ impl Container {
             border_radius: 0f64,
             padding: Padding::new(0f64),
         })
+    }
+
+    pub fn from_size(size: Size) -> Self {
+        Self::new(PhantomComponent::new(size)).unwrap()
     }
 
     pub fn background(mut self, color: Color) -> Self {
@@ -107,8 +111,7 @@ impl Component for Container {
 
         let mut scene = Scene::new();
         let size = self.computed_size(tree)?;
-        let rect = Rect::new(0.0, 0.0, size.width, size.height)
-            .to_rounded_rect(self.border_radius);
+        let rect = Rect::new(0.0, 0.0, size.width, size.height).to_rounded_rect(self.border_radius);
         if let Some(background_color) = self.background_color {
             scene.fill(
                 vello::peniko::Fill::NonZero,
@@ -146,8 +149,13 @@ impl Component for Container {
             if self.border_width > 0.0 {
                 let stroke = vello::kurbo::Stroke::new(self.border_width);
                 let half_bw = self.border_width / 2.0;
-                let stroke_rect = Rect::new(half_bw, half_bw, size.width - half_bw, size.height - half_bw)
-                    .to_rounded_rect((self.border_radius - half_bw).max(0.0));
+                let stroke_rect = Rect::new(
+                    half_bw,
+                    half_bw,
+                    size.width - half_bw,
+                    size.height - half_bw,
+                )
+                .to_rounded_rect((self.border_radius - half_bw).max(0.0));
                 scene.stroke(&stroke, Affine::IDENTITY, border_color, None, &stroke_rect);
             }
         }
@@ -190,6 +198,60 @@ impl Component for Container {
         match self.id {
             Some(v) => return Ok(v),
             None => return Err(crate::render::error::RenderError::NotComputed),
+        }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+#[derive(Clone)]
+pub struct PhantomComponent {
+    size: Size,
+    id: Option<NodeId>,
+}
+
+impl PhantomComponent {
+    pub fn new(size: Size) -> Self {
+        Self { size, id: None }
+    }
+}
+
+impl Component for PhantomComponent {
+    fn render(&self, _: &TaffyTree) -> Result<Scene, RenderError> {
+        Ok(Scene::new())
+    }
+
+    fn size(&self) -> Result<Size, RenderError> {
+        Ok(self.size)
+    }
+
+    fn register_layout(&mut self, tree: &mut TaffyTree) -> Result<NodeId, RenderError> {
+        let style = taffy::Style {
+            size: taffy::Size {
+                width: length(self.size()?.width as f32),
+                height: length(self.size()?.height as f32),
+            },
+            display: taffy::Display::Flex,
+            align_items: Some(taffy::AlignItems::CENTER),
+            justify_content: Some(JustifyContent::CENTER),
+            ..Default::default()
+        };
+        let a = tree.new_leaf(style)?;
+        self.id = Some(a);
+        tree.compute_layout(a, taffy::Size::max_content())?;
+        Ok(a)
+    }
+
+    fn layout(&self) -> Result<NodeId, RenderError> {
+        match self.id {
+            Some(v) => Ok(v),
+            None => Err(RenderError::NotComputed),
         }
     }
 

@@ -31,8 +31,15 @@
 
 local model = Model.new(Size.youtube_shorts(), FpsTarget.f60())
 
+local background = Container.from_size(Size.youtube_shorts())
+background:set_background("#FFFFFF")
+
+model:add_component(background);
+
+model:wait(1);
+
 -- Build the card content
-local title = Text.new("Hello, Cono")
+local title = Text.new("Hello, Cono"):size(10)
     title:set_size(56)
     title:set_color("#F5E0DC")
     title:set_weight(Weight.bold())
@@ -89,6 +96,7 @@ model:with_pointer(ptr, function(c)
     )
     c:set_location(new_loc)
     c:set_anchor(Anchor.center())
+    c:set_angle(Angle.new(0.0))
     c:set_opacity(Opacity.with_progress(1.0, 0.0))
 end)
 

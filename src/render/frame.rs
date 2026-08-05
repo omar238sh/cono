@@ -6,7 +6,8 @@ use vello::Scene;
 
 use crate::down_cast;
 use crate::render::components::SceneGpuRenderer;
-use crate::render::components::freebox::{FreeBox, LocatedComponent, Location};
+use crate::render::components::container::{Container, PhantomComponent};
+use crate::render::components::freebox::{Angle, FreeBox, LocatedComponent, Location, Opacity};
 use crate::render::components::placeholder::PlaceHolder;
 use crate::render::error::RenderError;
 use crate::render::models::Size;
@@ -110,6 +111,14 @@ pub trait Component: ComponentClone + Send + 'static {
     fn layout(&self) -> Result<NodeId, RenderError>;
 
     fn get_location(&self) -> Option<Location> {
+        None
+    }
+
+    fn get_angle(&self) -> Option<Angle> {
+        None
+    }
+
+    fn get_opacity(&self) -> Option<Opacity> {
         None
     }
 

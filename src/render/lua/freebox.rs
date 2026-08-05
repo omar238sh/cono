@@ -247,12 +247,12 @@ impl mlua::UserData for LocatedComponent {
             this.set_location(loc);
             Ok(())
         });
-        fields.add_field_method_get("opacity", |_, this| Ok(this.opacity.clone()));
+        fields.add_field_method_get("opacity", |_, this| Ok(this.get_opacity()));
         fields.add_field_method_set("opacity", |_, this, op: Opacity| {
             this.opacity = op;
             Ok(())
         });
-        fields.add_field_method_get("angle", |_, this| Ok(this.angle.clone()));
+        fields.add_field_method_get("angle", |_, this| Ok(this.get_angle()));
         fields.add_field_method_set("angle", |_, this, ang: Angle| {
             this.angle = ang;
             Ok(())
