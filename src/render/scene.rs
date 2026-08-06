@@ -1,4 +1,7 @@
-use std::{ops::Mul, path::Path};
+use std::{
+    ops::{Add, Mul},
+    path::Path,
+};
 
 use taffy::TaffyTree;
 use vello::Scene as VelloScene;
@@ -110,10 +113,18 @@ impl Scene {
         let mut octx = ffmpeg_next::format::output(path)
             .map_err(|e| RenderError::CustomError(format!("Cannot open output file: {}", e)))?;
 
-        let codec = ffmpeg_next::codec::encoder::find(ffmpeg_next::codec::Id::H264)
-            .ok_or_else(|| RenderError::CustomError("H264 encoder not found".to_string()))?;
+        let codec = ffmpeg_next::codec::encoder::find_by_name("h264_nvenc")
+            .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_amf"))
+            .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_qsv"))
+            .or_else(|| ffmpeg_next::codec::encoder::find(ffmpeg_next::codec::Id::H264))
+            .ok_or_else(|| {
+                RenderError::CustomError("No suitable H264 encoder found".to_string())
+            })?;
 
         let encoder_ctx = ffmpeg_next::codec::context::Context::new_with_codec(codec);
+        let mut opts = ffmpeg_next::Dictionary::new();
+        opts.set("preset", "p4");
+        opts.set("tune", "hq");
         let mut encoder = encoder_ctx
             .encoder()
             .video()
@@ -136,7 +147,7 @@ impl Scene {
         }
 
         let mut opened_encoder = encoder
-            .open()
+            .open_with(opts)
             .map_err(|e| RenderError::CustomError(format!("Cannot open encoder: {}", e)))?;
 
         let ost_index = {
@@ -225,6 +236,50 @@ impl Scene {
             .map_err(|e| RenderError::CustomError(format!("Cannot write trailer: {}", e)))?;
 
         Ok(())
+    }
+
+    pub fn render_video(&self, path: &Path) -> Result<(), RenderError> {
+        self.render(path)
+    }
+}
+
+pub fn add_scenes(a: &Scene, b: &Scene) -> Scene {
+    let mut combined = a.clone();
+    if combined.frames.is_empty() {
+        return b.clone();
+    }
+    if b.frames.is_empty() {
+        return combined;
+    }
+    let _ = combined.append(b.clone());
+    combined
+}
+
+impl Add<Scene> for Scene {
+    type Output = Scene;
+    fn add(self, rhs: Scene) -> Self::Output {
+        add_scenes(&self, &rhs)
+    }
+}
+
+impl Add<&Scene> for Scene {
+    type Output = Scene;
+    fn add(self, rhs: &Scene) -> Self::Output {
+        add_scenes(&self, rhs)
+    }
+}
+
+impl Add<Scene> for &Scene {
+    type Output = Scene;
+    fn add(self, rhs: Scene) -> Self::Output {
+        add_scenes(self, &rhs)
+    }
+}
+
+impl Add<&Scene> for &Scene {
+    type Output = Scene;
+    fn add(self, rhs: &Scene) -> Self::Output {
+        add_scenes(self, rhs)
     }
 }
 
@@ -343,8 +398,27 @@ impl mlua::UserData for Scene {
                 .map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
 
+        methods.add_method("render_video", |_lua, this, path_str: String| {
+            this.render_video(Path::new(&path_str))
+                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        });
+
         methods.add_meta_method(mlua::MetaMethod::Mul, |_, this, other: Scene| {
             Ok(this.clone() * other)
+        });
+
+        methods.add_meta_method(mlua::MetaMethod::Add, |_, this, other_val: mlua::Value| {
+            if let mlua::Value::UserData(ud) = &other_val {
+                if let Ok(other_scene) = ud.borrow::<Scene>() {
+                    return Ok(this.clone() + other_scene.clone());
+                }
+                if let Ok(other_model) = ud.borrow::<crate::render::animation::Model>() {
+                    return Ok(this.clone() + other_model.clone());
+                }
+            }
+            Err(mlua::Error::external(
+                "Invalid operand for Scene addition (+)",
+            ))
         });
     }
 }

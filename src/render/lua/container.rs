@@ -70,21 +70,6 @@ impl mlua::UserData for Container {
             this.size = size;
             Ok(())
         });
-        fields.add_field_method_get("border_width", |_, this| Ok(this.border_width));
-        fields.add_field_method_set("border_width", |_, this, w: f64| {
-            this.border_width = w;
-            Ok(())
-        });
-        fields.add_field_method_get("border_radius", |_, this| Ok(this.border_radius));
-        fields.add_field_method_set("border_radius", |_, this, r: f64| {
-            this.border_radius = r;
-            Ok(())
-        });
-        fields.add_field_method_get("padding", |_, this| Ok(this.padding));
-        fields.add_field_method_set("padding", |_, this, p: Padding| {
-            this.padding = p;
-            Ok(())
-        });
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {

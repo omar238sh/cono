@@ -1,9 +1,23 @@
-use crate::render::{animation::Model, lua::lua::register_globals};
-use mlua::Lua;
+#[cfg(test)]
+use crate::render::animation::Model;
+use crate::render::lua::lua::register_globals;
+use mlua::{Lua, LuaOptions, StdLib};
+
+#[cfg(test)]
 use std::path::Path;
 
 pub fn create_lua_instance() -> mlua::Result<Lua> {
-    let lua = Lua::new();
+    // let lua = Lua::new();
+    let lua = Lua::new_with(StdLib::ALL, LuaOptions::default())?;
+
+    let require = lua.create_function(|lua, module_name: String| {
+        let path = format!("./local/share/cono/{}.lua", module_name);
+        let src = std::fs::read_to_string(&path).map_err(|e| {
+            mlua::Error::RuntimeError(format!("cannot find module '{}': {}", module_name, e))
+        })?;
+        lua.load(&src).set_name(&module_name).eval::<mlua::Value>()
+    })?;
+    lua.globals().set("require", require)?;
     register_globals(&lua)?;
     Ok(lua)
 }
@@ -52,7 +66,11 @@ fn test_lua_components_creation() -> mlua::Result<()> {
         txt:set_color("#FF0000")
         txt:set_weight(Weight.bold())
 
+        local txt_chained = Text.new("Chained Text"):size(40):color("#00FF00"):font("DejaVu Sans")
+        local txt_raw = Text.from_raw("$ a^2 + b^2 = c^2 $"):size(32)
+
         assert(txt.content == "Lua Engine Test", "Text content failed")
+        assert(txt_raw:to_typst():find("set page"), "Raw Typst page set failed")
 
         local col = Column.new(Size.youtube_video())
         col:set_arrangment(Arrangement.center())
@@ -158,6 +176,30 @@ fn test_lua_scene_multiplication() -> mlua::Result<()> {
 
     let frames_count: usize = lua.load(script).eval()?;
     assert_eq!(frames_count, 15);
+    Ok(())
+}
+
+#[test]
+fn test_lua_scene_addition() -> mlua::Result<()> {
+    let lua = create_lua_instance()?;
+
+    let script = r##"
+        local model1 = Model.new(Size.youtube_video(), FpsTarget.f30())
+        model1:add_component(Text.new("Scene 1"))
+        model1:wait(0.5) -- 15 frames
+
+        local model2 = Model.new(Size.youtube_video(), FpsTarget.f30())
+        model2:add_component(Text.new("Scene 2"))
+        model2:wait(0.5) -- 15 frames
+
+        local combined = model1 + model2
+        -- Verify render_video method exists on Scene
+        assert(type(combined.render_video) == "function", "Scene render_video method missing")
+        return combined.frames_count
+    "##;
+
+    let frames_count: usize = lua.load(script).eval()?;
+    assert_eq!(frames_count, 30);
     Ok(())
 }
 

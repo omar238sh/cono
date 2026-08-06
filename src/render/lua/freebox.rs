@@ -277,6 +277,14 @@ impl mlua::UserData for LocatedComponent {
             this.set_location(loc);
             Ok(())
         });
+
+        methods.add_method_mut("target_loc", |_, this, (x, y): (Coordinate, Coordinate)| {
+            let loc = this.get_location();
+            let new_loc = Location::with_progress(loc, Location::new(x, y));
+            this.set_location(new_loc);
+            Ok(())
+        });
+
         methods.add_method("anchor", |_, this, anchor: Anchor| {
             Ok(this.clone().anchor(anchor))
         });
@@ -293,6 +301,29 @@ impl mlua::UserData for LocatedComponent {
             this.opacity = op;
             Ok(())
         });
+
+        methods.add_method_mut("target_opacity", |_, this, opacity: Opacity| {
+            let op = this.get_opacity();
+            let new_op = Opacity::with_progress(op.value(), opacity.value());
+            this.opacity = new_op;
+            Ok(())
+        });
+
+        methods.add_method_mut("pin", |_, this, ()| {
+            let mut loc = this.get_location();
+            loc.x.pin();
+            loc.y.pin();
+            this.set_location(loc);
+
+            let opacity = this.get_opacity();
+            this.opacity = Opacity::new(opacity.value());
+
+            let angle = this.get_angle();
+            this.angle = Angle::new(angle.value());
+
+            Ok(())
+        });
+
         methods.add_method("angle", |_, this, ang: Angle| {
             let mut c = this.clone();
             c.angle = ang;
@@ -300,6 +331,13 @@ impl mlua::UserData for LocatedComponent {
         });
         methods.add_method_mut("set_angle", |_, this, ang: Angle| {
             this.angle = ang;
+            Ok(())
+        });
+
+        methods.add_method_mut("target_angle", |_, this, angle: Angle| {
+            let a = this.get_angle();
+            let new_angle = Angle::with_progress(a.value(), angle.value());
+            this.angle = new_angle;
             Ok(())
         });
         methods.add_method_mut("shift", |_, this, shift_loc: Location| {

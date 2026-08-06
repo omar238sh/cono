@@ -73,28 +73,11 @@ impl mlua::UserData for Text {
             *this.cache.borrow_mut() = None;
             Ok(())
         });
-        fields.add_field_method_get("color", |_, this| Ok(this.color.clone()));
-        fields.add_field_method_set("color", |_, this, val: Option<String>| {
-            this.color = val;
-            *this.cache.borrow_mut() = None;
-            Ok(())
-        });
-        fields.add_field_method_get("font", |_, this| Ok(this.font.clone()));
-        fields.add_field_method_set("font", |_, this, val: Option<String>| {
-            this.font = val;
-            *this.cache.borrow_mut() = None;
-            Ok(())
-        });
-        fields.add_field_method_get("size", |_, this| Ok(this.size));
-        fields.add_field_method_set("size", |_, this, val: Option<u32>| {
-            this.size = val;
-            *this.cache.borrow_mut() = None;
-            Ok(())
-        });
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("new", |_, content: String| Ok(Text::new(content)));
+        methods.add_function("from_raw", |_, content: String| Ok(Text::from_raw(content)));
         methods.add_method("color", |_, this, c: String| Ok(this.clone().color(c)));
         methods.add_method_mut("set_color", |_, this, c: String| {
             this.set_color(c);

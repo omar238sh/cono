@@ -1,4 +1,9 @@
-use std::{ops::Mul, path::Path};
+use std::{
+    ops::{Add, Mul},
+    path::Path,
+};
+
+use crate::render::scene::add_scenes;
 
 use crate::render::{
     animation::FpsTarget,
@@ -295,6 +300,94 @@ impl Model {
     /// Renders the entire animation scene to a video file at `path`.
     pub fn render_video(&self, path: &Path) -> Result<(), RenderError> {
         self.scene.render(path)
+    }
+}
+
+// =============================================================================
+// Sequential Timeline Model & Scene Addition (Concatenation)
+// =============================================================================
+
+impl Add<Model> for Model {
+    type Output = Scene;
+    fn add(self, rhs: Model) -> Self::Output {
+        add_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Add<&Model> for Model {
+    type Output = Scene;
+    fn add(self, rhs: &Model) -> Self::Output {
+        add_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Add<Model> for &Model {
+    type Output = Scene;
+    fn add(self, rhs: Model) -> Self::Output {
+        add_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Add<&Model> for &Model {
+    type Output = Scene;
+    fn add(self, rhs: &Model) -> Self::Output {
+        add_scenes(self.scene(), rhs.scene())
+    }
+}
+
+impl Add<Scene> for Model {
+    type Output = Scene;
+    fn add(self, rhs: Scene) -> Self::Output {
+        add_scenes(self.scene(), &rhs)
+    }
+}
+
+impl Add<&Scene> for Model {
+    type Output = Scene;
+    fn add(self, rhs: &Scene) -> Self::Output {
+        add_scenes(self.scene(), rhs)
+    }
+}
+
+impl Add<Scene> for &Model {
+    type Output = Scene;
+    fn add(self, rhs: Scene) -> Self::Output {
+        add_scenes(self.scene(), &rhs)
+    }
+}
+
+impl Add<&Scene> for &Model {
+    type Output = Scene;
+    fn add(self, rhs: &Scene) -> Self::Output {
+        add_scenes(self.scene(), rhs)
+    }
+}
+
+impl Add<Model> for Scene {
+    type Output = Scene;
+    fn add(self, rhs: Model) -> Self::Output {
+        add_scenes(&self, rhs.scene())
+    }
+}
+
+impl Add<&Model> for Scene {
+    type Output = Scene;
+    fn add(self, rhs: &Model) -> Self::Output {
+        add_scenes(&self, rhs.scene())
+    }
+}
+
+impl Add<Model> for &Scene {
+    type Output = Scene;
+    fn add(self, rhs: Model) -> Self::Output {
+        add_scenes(self, rhs.scene())
+    }
+}
+
+impl Add<&Model> for &Scene {
+    type Output = Scene;
+    fn add(self, rhs: &Model) -> Self::Output {
+        add_scenes(self, rhs.scene())
     }
 }
 

@@ -107,15 +107,18 @@ function FontStyle.oblique() end
 
 ---@class Text
 ---@field content string Text content
----@field color string|nil Color hex string
----@field font string|nil Font family name
----@field size integer|nil Font size in pixels
 Text = {}
 
 --- Creates a new Text component.
 ---@param content string Text content
 ---@return Text
 function Text.new(content) end
+
+--- Creates a new Text component from raw Typst code.
+--- Appends background removal page configuration.
+---@param content string Raw Typst markup or math code
+---@return Text
+function Text.from_raw(content) end
 
 --- Sets text color (chainable).
 ---@param c string Hex color string
@@ -663,6 +666,22 @@ function LocatedComponent.new(val) end
 ---@param progress number
 function LocatedComponent:update_progress(progress) end
 
+-- Pin Location and angle and opacity to the last value to prevent rerun animation good to use after after update progress
+function LocatedComponent:pin() end
+
+-- Set target_opacity prevent rewrite the present opacity
+--@param opacity Opacity
+function LocatedComponent:target_opacity(opacity) end
+
+-- Set target_angle prevent rewrite the present angle
+--@param angle Angle
+function LocatedComponent:target_angle(angle) end
+
+-- Set target_loc prevent rewrite the present location
+--@param x Coordinate
+--@param y Coordinate
+function LocatedComponent:target_loc(x , y) end
+
 --- Sets location (chainable).
 ---@param loc Location
 ---@return LocatedComponent
@@ -904,6 +923,10 @@ function Scene:append(other) end
 ---@param path_str string Path to destination MP4 file
 function Scene:render(path_str) end
 
+--- Alias for render. Renders scene to MP4 video file at specified path.
+---@param path_str string Path to destination MP4 file
+function Scene:render_video(path_str) end
+
 
 ---=============================================================================
 --- Model (Main Animation & Composition Canvas)
@@ -990,6 +1013,14 @@ function Model:animate_pointer(pointer, duration_sec, easing, anim_fn) end
 ---@param pointer_ud ElementPointer Element pointer
 ---@param func fun(comp: any) Callback function
 function Model:with_pointer(pointer_ud, func) end
+
+--- Operator `+`: Concatenates two models or scenes sequentially along the timeline.
+--- Returns a combined `Scene`.
+--- Example: `local sequence = model1 + model2`
+
+--- Operator `*`: Combines two models or scenes in parallel (overlaying frames).
+--- Returns a combined `Scene`.
+--- Example: `local overlay = model1 * model2`
 
 
 ---=============================================================================

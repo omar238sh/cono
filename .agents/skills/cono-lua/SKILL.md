@@ -77,8 +77,9 @@ local scaled = sz * 2.0            -- Operators: Size * number, Size / number
 ## 4. Component Primitives & Styling
 
 ### Text Component (`Text`)
-Chainable fluent builder for typography:
+Chainable fluent builder & mutator for typography:
 ```lua
+-- Option 1: Fluent builder method chaining on creation
 local title = Text.new("Cono Video Engine")
     :size(54)                      -- Font size in pixels
     :color("#F5E0DC")              -- Hex string (#RGB, #RRGGBB, #RRGGBBAA)
@@ -86,11 +87,17 @@ local title = Text.new("Cono Video Engine")
     :weight(Weight.bold())         -- Font weight preset
     :italic()                      -- Enable italic style
 
--- In-place setters:
-title:set_size(60)
-title:set_color("#FFFFFF")
-title:set_weight(Weight.medium())
-title:set_italic()
+-- Option 2: In-place mutator methods after creation
+local subtitle = Text.new("Subtext")
+subtitle:set_size(32)
+subtitle:set_color("#A6ADC8")
+subtitle:set_weight(Weight.medium())
+subtitle:set_italic()
+
+-- Option 3: Raw Typst Code / Math equations with Text.from_raw
+local formula = Text.from_raw("$ e^(i pi) + 1 = 0 $")
+    :size(48)
+    :color("#F5E0DC")
 
 -- Weight presets:
 -- Weight.thin(), Weight.extra_light(), Weight.light(), Weight.regular(),
@@ -99,6 +106,14 @@ title:set_italic()
 -- FontStyle presets:
 -- FontStyle.regular(), FontStyle.italic(), FontStyle.oblique()
 ```
+
+> [!NOTE]
+> **Agent Best Practice for Text & Typst Math**:
+> - Use `Text.new("plain text")` for normal text elements.
+> - Use `Text.from_raw("$ ... $")` when passing raw Typst code or math formulas. It automatically appends `#set page(width: auto, height: auto, fill: none, margin: 0.4cm)` to ensure transparent background.
+> - Use fluent method chaining on `Text.new("..."):size(N):color(...)` during inline construction.
+> - When modifying an existing `Text` variable, call in-place mutator methods like `text:set_size(N)`, `text:set_color(...)`, `text:set_weight(...)`, and `text:set_font(...)`.
+
 
 ### Container Box (`Container`)
 Wraps a single child element with background, border, radius, and padding:
@@ -399,28 +414,34 @@ model:add_component(math_box)
 
 ---
 
-## 9. Multi-Scene Composition & Scene Arithmetic (`*`)
+## 9. Multi-Scene Composition & Scene Arithmetic (`+` and `*`)
 
-The multiplication operator (`*`) between `Model` or `Scene` instances concatenates video timelines sequentially or merges layers:
+Cono supports scene arithmetic on `Model` and `Scene` instances:
+- **`+` (Sequential Timeline Addition)**: Appends scenes end-to-end sequentially along the timeline.
+- **`*` (Parallel Layer Multiplication)**: Overlays frames of scenes in parallel on top of each other.
 
 ```lua
--- Create scene 1 (Intro)
-local intro_model = Model.new(Size.youtube_shorts(), FpsTarget.f60())
--- ... build intro animation ...
+-- Create scene 1 (Intro: 2.0s)
+local intro = Model.new(Size.youtube_shorts(), FpsTarget.f60())
+intro:add_component(Text.new("Welcome to Cono Engine"):size(44))
+intro:wait(2.0)
 
--- Create scene 2 (Main Math Content)
-local content_model = Model.new(Size.youtube_shorts(), FpsTarget.f60())
--- ... build main content animation ...
+-- Create scene 2 (Main Content: 4.0s)
+local main_content = Model.new(Size.youtube_shorts(), FpsTarget.f60())
+main_content:add_component(Text.from_raw("$ e^(i pi) + 1 = 0 $"):size(56))
+main_content:wait(4.0)
 
--- Create scene 3 (Outro CTA)
-local outro_model = Model.new(Size.youtube_shorts(), FpsTarget.f60())
--- ... build outro CTA animation ...
+-- Create scene 3 (Outro: 2.0s)
+local outro = Model.new(Size.youtube_shorts(), FpsTarget.f60())
+outro:add_component(Text.new("Subscribe for More!"):size(40))
+outro:wait(2.0)
 
--- Concatenate scenes sequentially into full video timeline!
-local full_video = intro_model * content_model * outro_model
+-- 1. Sequential Addition (+): Concatenates timelines (2s + 4s + 2s = 8s total)
+local sequence = intro + main_content + outro
+sequence:render_video("full_timeline.mp4") -- Both :render() and :render_video() are supported on Scene!
 
--- Render final composition
-full_video:render_video("full_presentation.mp4")
+-- 2. Parallel Overlay (*): Merges layers across the same time duration
+local overlay = intro * main_content
 ```
 
 ---

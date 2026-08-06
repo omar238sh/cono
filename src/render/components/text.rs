@@ -24,6 +24,7 @@ pub struct Text {
     pub weight: Option<Weight>,
     pub style: Option<FontStyle>,
     pub cache: RefCell<Option<SvgBox>>,
+    pub is_raw: bool,
     // pub id: Option<NodeId>,
 }
 
@@ -83,7 +84,21 @@ impl Text {
             weight: None,
             style: None,
             cache: RefCell::new(None),
+            is_raw: false,
             // id: None,
+        }
+    }
+
+    pub fn from_raw(content: impl ToString) -> Self {
+        Self {
+            content: content.to_string(),
+            color: None,
+            font: None,
+            size: None,
+            weight: None,
+            style: None,
+            cache: RefCell::new(None),
+            is_raw: true,
         }
     }
 
@@ -115,10 +130,43 @@ impl Text {
             args.push(format!("style: \"{}\"", style.as_typst()));
         }
 
-        let body = Self::escape_markup(&self.content);
+        let body = if self.is_raw {
+            self.content.clone()
+        } else {
+            Self::escape_markup(&self.content)
+        };
 
         let mut out = String::new();
-        if args.is_empty() {
+        if self.is_raw {
+            if args.is_empty() {
+                let _ = write!(
+                    out,
+                    r#"
+                    #set page(
+                        width : auto,
+                        height : auto,
+                        fill : none,
+                        margin : 0.4cm
+                    )
+                    {}"#,
+                    body
+                );
+            } else {
+                let _ = write!(
+                    out,
+                    r#"
+                    #set page(
+                        width : auto,
+                        height : auto,
+                        fill : none,
+                        margin : 0.4cm
+                    )
+                    #text({})[{}]"#,
+                    args.join(", "),
+                    body
+                );
+            }
+        } else if args.is_empty() {
             // No styling needed — just emit the raw markup content.
             out.push_str(&body);
         } else {

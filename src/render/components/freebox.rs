@@ -39,6 +39,7 @@ pub enum Coordinate {
         start: Box<Coordinate>,
         end: Box<Coordinate>,
         progress: f64,
+        pin: bool,
     },
 }
 
@@ -67,13 +68,24 @@ impl Coordinate {
             start: Box::new(start),
             end: Box::new(end),
             progress: 0.0,
+            pin: false,
+        }
+    }
+
+    pub fn pin(&mut self) {
+        match self {
+            Self::WithProgress { pin, .. } => *pin = true,
+            _ => {}
         }
     }
 
     pub fn update_progress(&mut self, p: f64) {
         match self {
-            Self::WithProgress { progress, .. } => {
-                *progress = p;
+            Self::WithProgress { progress, pin, .. } => {
+                if !*pin {
+                    *progress = p
+                } else {
+                }
             }
             _ => {}
         }
@@ -119,6 +131,7 @@ impl Coordinate {
                 start,
                 end,
                 progress,
+                ..
             } => {
                 let base = match start.to_absolute(max_length) {
                     Coordinate::Absolute(v) => v,

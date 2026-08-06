@@ -74,8 +74,9 @@ impl mlua::UserData for Model {
     }
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_function("new", |_, (size, fps_val): (Size, FpsTarget)| {
-            Ok(Model::new(size, fps_val))
+        methods.add_function("new", |_, (size, fps_val): (Size, Option<FpsTarget>)| {
+            let fps = fps_val.unwrap_or(FpsTarget::F60);
+            Ok(Model::new(size, fps))
         });
 
         methods.add_method("size", |_lua, this, ()| Ok(this.size()));
@@ -285,6 +286,20 @@ impl mlua::UserData for Model {
             }
             Err(mlua::Error::external(
                 "Invalid operand for Model multiplication",
+            ))
+        });
+
+        methods.add_meta_method(mlua::MetaMethod::Add, |_, this, other_val: mlua::Value| {
+            if let mlua::Value::UserData(ud) = &other_val {
+                if let Ok(other_model) = ud.borrow::<Model>() {
+                    return Ok(this.clone() + other_model.clone());
+                }
+                if let Ok(other_scene) = ud.borrow::<Scene>() {
+                    return Ok(this.clone() + other_scene.clone());
+                }
+            }
+            Err(mlua::Error::external(
+                "Invalid operand for Model addition (+)",
             ))
         });
     }

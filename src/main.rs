@@ -12,12 +12,13 @@ fn main() -> Result<(), RenderError> {
 
     match cli.command {
         Commands::Render { file_path } => {
-            let lua = create_lua_instance().map_err(|_| {
-                RenderError::CustomError("failed to create lua instance".to_string())
+            let lua = create_lua_instance().map_err(|e| {
+                RenderError::CustomError(format!("failed to create lua instance {e}"))
             })?;
-            let script = read_to_string(file_path)
+            let script = read_to_string(file_path.clone())
                 .map_err(|_| RenderError::CustomError("Failed to find file".to_string()))?;
             lua.load(script)
+                .set_name(file_path.to_str().unwrap())
                 .exec()
                 .map_err(|e| RenderError::CustomError(e.to_string()))?;
         }
