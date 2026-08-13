@@ -96,6 +96,7 @@ impl mlua::UserData for Model {
         methods.add_method_mut("add_component", |_, this, val: mlua::AnyUserData| {
             down_cast!(this, add_component, val => [
                 Text,
+                Grid,
                 Column,
                 Row,
                 Container,
@@ -104,6 +105,7 @@ impl mlua::UserData for Model {
                 LocatedComponent,
                 PlaceHolder<LocatedComponent>,
                 PlaceHolder<Text>,
+                PlaceHolder<Grid>,
                 PlaceHolder<Column>,
                 PlaceHolder<Row>,
                 PlaceHolder<Container>,
@@ -187,6 +189,7 @@ impl mlua::UserData for Model {
                     }).unwrap();
                 } => [
                         Text,
+                        Grid,
                         Column,
                         Row,
                         Container,
@@ -195,12 +198,14 @@ impl mlua::UserData for Model {
                         LocatedComponent,
                         PlaceHolder<LocatedComponent>,
                         PlaceHolder<Text>,
+                        PlaceHolder<Grid>,
                         PlaceHolder<Column>,
                         PlaceHolder<Row>,
                         PlaceHolder<Container>,
                         PlaceHolder<FreeBox>,
                         PlaceHolder<SvgBox>,
                         ElementPointer<Text>,
+                        ElementPointer<Grid>,
                         ElementPointer<Column>,
                         ElementPointer<Row>,
                         ElementPointer<Container>,
@@ -233,6 +238,7 @@ impl mlua::UserData for Model {
                     }).unwrap();
                 } => [
                     ElementPointer<Text>,
+                    ElementPointer<Grid>,
                     ElementPointer<Column>,
                     ElementPointer<Row>,
                     ElementPointer<Container>,
@@ -264,6 +270,7 @@ impl mlua::UserData for Model {
                     })
                 } => [
                         ElementPointer<Text>,
+                        ElementPointer<Grid>,
                         ElementPointer<Column>,
                         ElementPointer<Row>,
                         ElementPointer<Container>,

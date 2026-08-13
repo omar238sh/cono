@@ -1,3 +1,5 @@
+use mlua::AnyUserData;
+
 use crate::{
     down_cast,
     render::{
@@ -263,6 +265,14 @@ impl mlua::UserData for LocatedComponent {
         methods.add_function("new", |_, val: mlua::AnyUserData| {
             let located = down_cast!(val, |c| { LocatedComponent::new(c) }).unwrap();
             Ok(located)
+        });
+
+        methods.add_method_mut("set_component", |_, this, comp: AnyUserData| {
+            down_cast!(comp, |c| {
+                this.set_component(c);
+            })
+            .ok_or(mlua::Error::external("mismatched type"))?;
+            Ok(())
         });
 
         methods.add_method_mut("update_progress", |_, this, progress| {

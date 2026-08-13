@@ -32,9 +32,35 @@ impl mlua::UserData for SvgBox {
         methods.add_function("new", |_, content: String| {
             SvgBox::new(content).map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
-        methods.add_function("from_path", |_, path_str: String| {
-            SvgBox::from_path(Path::new(&path_str))
-                .map_err(|e| mlua::Error::external(format!("{:?}", e)))
+        methods.add_function("from_path", |lua, path_str: String| {
+            let raw = Path::new(&path_str);
+
+            let resolved: std::path::PathBuf = if raw.is_absolute() {
+                raw.to_path_buf()
+            } else {
+                let mut dir = None;
+                for level in 0..16 {
+                    let found = lua.inspect_stack(level, |dbg| {
+                        dbg.source().source.and_then(|src| {
+                            src.strip_prefix('@')
+                                .and_then(|file| Path::new(file).parent())
+                                .map(|p| p.to_path_buf())
+                        })
+                    });
+                    match found {
+                        Some(Some(d)) => {
+                            dir = Some(d);
+                            break;
+                        }
+                        Some(None) => continue, // frame exists but not a file chunk (C fn, string chunk, etc.)
+                        None => break,          // no more frames
+                    }
+                }
+                dir.map(|d| d.join(raw))
+                    .unwrap_or_else(|| raw.to_path_buf())
+            };
+
+            SvgBox::from_path(&resolved).map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
         methods.add_method("padding", |_, this, pad: Padding| {
             Ok(this.clone().padding(pad))

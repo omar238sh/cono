@@ -6,6 +6,7 @@ use crate::render::{
         column::Column,
         container::Container,
         freebox::{Anchor, Angle, Coordinate, FreeBox, LocatedComponent, Location, Opacity},
+        grid::Grid,
         placeholder::PlaceHolder,
         row::Row,
         style::{Alignment, Arrangement, Padding, Style},
@@ -28,6 +29,7 @@ pub fn register_globals(lua: &Lua) -> mlua::Result<()> {
     globals.set("FontStyle", lua.create_proxy::<FontStyle>()?)?;
     globals.set("Column", lua.create_proxy::<Column>()?)?;
     globals.set("Row", lua.create_proxy::<Row>()?)?;
+    globals.set("Grid", lua.create_proxy::<Grid>()?)?;
     globals.set("Container", lua.create_proxy::<Container>()?)?;
     globals.set("FreeBox", lua.create_proxy::<FreeBox>()?)?;
     globals.set("SvgBox", lua.create_proxy::<SvgBox>()?)?;
@@ -37,6 +39,7 @@ pub fn register_globals(lua: &Lua) -> mlua::Result<()> {
         lua.create_proxy::<PlaceHolder<LocatedComponent>>()?,
     )?;
     globals.set("PlaceHolderText", lua.create_proxy::<PlaceHolder<Text>>()?)?;
+    globals.set("PlaceHolderGrid", lua.create_proxy::<PlaceHolder<Grid>>()?)?;
     globals.set(
         "PlaceHolderColumn",
         lua.create_proxy::<PlaceHolder<Column>>()?,

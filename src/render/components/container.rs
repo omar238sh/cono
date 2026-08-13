@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use taffy::{JustifyContent, NodeId, Style, TaffyTree, prelude::length};
+use taffy::{JustifyContent, NodeId, TaffyTree, prelude::length};
 use vello::{
     Scene,
     kurbo::{Affine, Rect},
@@ -181,7 +181,7 @@ impl Component for Container {
             },
             display: taffy::Display::Flex,
             align_items: Some(taffy::AlignItems::CENTER),
-            padding: self.padding.to_rect(),
+            // padding: self.padding.to_rect(),
             justify_content: Some(JustifyContent::CENTER),
             ..Default::default()
         };

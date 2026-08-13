@@ -319,6 +319,20 @@ impl LocatedComponent {
         }
     }
 
+    pub fn from_box(child: Box<dyn Component>) -> Self {
+        let size = child.size().unwrap_or(Size::new(0.0, 0.0));
+        let location = child.get_location().unwrap_or_else(Location::zero);
+        let opacity = child.get_opacity().unwrap_or_else(|| Opacity::new(1.0));
+        let angle = child.get_angle().unwrap_or_else(|| Angle::new(0.0));
+        Self {
+            child: child,
+            location,
+            opacity,
+            angle,
+            rotation_anchor: Point::new(size.width / 2.0, size.height / 2.0),
+        }
+    }
+
     pub fn sync_location(&mut self) {
         if let Some(loc) = self.child.get_location() {
             self.location = loc;
@@ -329,6 +343,10 @@ impl LocatedComponent {
         if let Some(ang) = self.child.get_angle() {
             self.angle = ang;
         }
+    }
+
+    pub fn set_component(&mut self, comp: impl Component) {
+        self.child = Box::new(comp);
     }
 
     pub fn get_location(&self) -> Location {

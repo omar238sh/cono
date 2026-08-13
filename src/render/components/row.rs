@@ -2,7 +2,10 @@ use taffy::{AlignItems, JustifyContent, NodeId, TaffyTree, prelude::length};
 use vello::{Scene, kurbo::Affine};
 
 use crate::render::{
-    components::style::{Alignment, Arrangement, Padding, Style},
+    components::{
+        freebox::{FreeBox, LocatedComponent, Location},
+        style::{Alignment, Arrangement, Padding, Style},
+    },
     error::RenderError,
     frame::Component,
     models::Size,
@@ -53,6 +56,30 @@ impl Row {
 
     pub fn set_padding(&mut self, padding: Padding) {
         *self.style.padding_mut() = padding;
+    }
+
+    pub fn append_to_freebox<C>(
+        &mut self,
+        freebox: &mut FreeBox,
+        base_loc: Location,
+        loc_set: C,
+    ) -> Result<(), RenderError>
+    where
+        C: Fn(Location) -> Location,
+    {
+        let mut tree = TaffyTree::new();
+        self.register_layout(&mut tree)?;
+        // let mut fbox = FreeBox::new(self.style.size());
+        for component in &self.contents {
+            let layout = tree.layout(component.layout()?)?;
+            let loc = Location::new(
+                super::freebox::Coordinate::Absolute(layout.location.x as f64),
+                super::freebox::Coordinate::Absolute(layout.location.y as f64),
+            ) + base_loc.clone();
+            freebox.add(LocatedComponent::from_box(component.clone()).location(loc_set(loc)));
+        }
+
+        Ok(())
     }
 }
 

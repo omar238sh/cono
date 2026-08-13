@@ -21,4 +21,8 @@ pub enum RenderError {
     FpsDismatch,
     #[error("Cannot init ffmpef")]
     FfmpegError,
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    // #[error("{0}")]
+    // LuaError(#[from] mlua::Error),
 }

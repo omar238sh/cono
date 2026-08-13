@@ -6,7 +6,6 @@ use vello::Scene;
 
 use crate::down_cast;
 use crate::render::components::SceneGpuRenderer;
-use crate::render::components::container::{Container, PhantomComponent};
 use crate::render::components::freebox::{Angle, FreeBox, LocatedComponent, Location, Opacity};
 use crate::render::components::placeholder::PlaceHolder;
 use crate::render::error::RenderError;

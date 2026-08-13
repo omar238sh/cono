@@ -1,9 +1,12 @@
 {
-  "workspace.library": [
-    "src/render/lua/lua_definitions.lua"
-  ],
-  "diagnostics.globals": [
-    "model",
-    "Easing"
-  ]
-}
+          "workspace.library": [
+            "src/render/lua/lua_definitions.lua",
+            "/home/omar/.local/share/cono"
+          ],
+          "diagnostics.globals": [
+            "model",
+            "Easing",
+            "require"
+          ]
+        }
+        

@@ -3,7 +3,7 @@
 --- Target language server: lua-language-server (Sumneko).
 
 ---@alias Color string|table<integer, integer> Hex color string (e.g., "#FF0000") or RGBA array table (e.g., {255, 0, 0, 255})
----@alias ComponentAny Text|Column|Row|Container|FreeBox|SvgBox|LocatedComponent|PlaceHolderText|PlaceHolderColumn|PlaceHolderRow|PlaceHolderContainer|PlaceHolderFreeBox|PlaceHolderSvgBox|PlaceHolderLocatedComponent
+---@alias ComponentAny Text|Canvas|Grid|Column|Row|Container|FreeBox|SvgBox|LocatedComponent|PlaceHolderText|PlaceHolderCanvas|PlaceHolderGrid|PlaceHolderColumn|PlaceHolderRow|PlaceHolderContainer|PlaceHolderFreeBox|PlaceHolderSvgBox|PlaceHolderLocatedComponent
 
 ---=============================================================================
 --- Size
@@ -376,6 +376,110 @@ function Row:padding(pad) end
 --- Sets padding in-place.
 ---@param pad Padding
 function Row:set_padding(pad) end
+
+
+---=============================================================================
+--- Grid (2D Matrix Layout Container)
+---=============================================================================
+
+---@class Grid
+---@field size Size Container dimensions
+Grid = {}
+
+-- Append grid to freebox
+--@param freebox FreeBox
+--@param base_loc Location
+--@param set_location fun(loc : Location): Location
+function append_to_freebox(freebox , base_loc , set_location) end
+
+--- Creates a new 2D Grid layout container.
+---@param size Size Container dimensions
+---@param cols integer|nil Column count (default: 2)
+---@return Grid
+function Grid.new(size, cols) end
+
+--- Creates a new 2D Grid layout container from explicit dimensions.
+---@param width number Width in pixels
+---@param height number Height in pixels
+---@param cols integer|nil Column count (default: 2)
+---@return Grid
+function Grid.from_size(width, height, cols) end
+
+--- Pushes a child component into the Grid.
+---@param val ComponentAny Child component
+function Grid:push(val) end
+
+--- Sets column count (chainable).
+---@param cols integer
+---@return Grid
+function Grid:cols(cols) end
+
+--- Sets column count in-place.
+---@param cols integer
+function Grid:set_cols(cols) end
+
+--- Sets row count (chainable).
+---@param rows integer
+---@return Grid
+function Grid:rows(rows) end
+
+--- Sets row count in-place.
+---@param rows integer
+function Grid:set_rows(rows) end
+
+--- Sets uniform column and row gap in pixels (chainable).
+---@param gap number Gap size in pixels
+---@return Grid
+function Grid:gap(gap) end
+
+--- Sets uniform column and row gap in pixels in-place.
+---@param gap number Gap size in pixels
+function Grid:set_gap(gap) end
+
+--- Sets column gap in pixels (chainable).
+---@param gap number Column gap in pixels
+---@return Grid
+function Grid:col_gap(gap) end
+
+--- Sets column gap in pixels in-place.
+---@param gap number Column gap in pixels
+function Grid:set_col_gap(gap) end
+
+--- Sets row gap in pixels (chainable).
+---@param gap number Row gap in pixels
+---@return Grid
+function Grid:row_gap(gap) end
+
+--- Sets row gap in pixels in-place.
+---@param gap number Row gap in pixels
+function Grid:set_row_gap(gap) end
+
+--- Sets main-axis arrangement (chainable).
+---@param arr Arrangement
+---@return Grid
+function Grid:arrangment(arr) end
+
+--- Sets main-axis arrangement in-place.
+---@param arr Arrangement
+function Grid:set_arrangment(arr) end
+
+--- Sets cross-axis alignment (chainable).
+---@param align Alignment
+---@return Grid
+function Grid:alignment(align) end
+
+--- Sets cross-axis alignment in-place.
+---@param align Alignment
+function Grid:set_alignment(align) end
+
+--- Sets padding (chainable).
+---@param pad Padding
+---@return Grid
+function Grid:padding(pad) end
+
+--- Sets padding in-place.
+---@param pad Padding
+function Grid:set_padding(pad) end
 
 
 ---=============================================================================

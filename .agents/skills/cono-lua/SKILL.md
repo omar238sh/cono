@@ -158,6 +158,29 @@ row:push(Text.new("Right"):size(28):color("#55FF55"))
 col:push(row) -- Nesting Row inside Column
 ```
 
+### 2D Grid Layout: `Grid`
+Matrix 2D grid container supporting column counts, row counts, and column/row pixel gaps (taking `Column` as structural reference):
+```lua
+-- Create a 3-column Grid layout (600x400)
+local grid = Grid.new(Size.new(600, 400), 3)
+    :gap(16.0)                           -- Set uniform column & row gap in px
+    :arrangment(Arrangement.center())   -- Main-axis arrangement
+    :alignment(Alignment.center())      -- Cross-axis alignment
+    :padding(Padding.new(24.0))
+
+-- Push items (automatically flows across columns and rows)
+grid:push(Text.new("Card 1"))
+grid:push(Text.new("Card 2"))
+grid:push(Text.new("Card 3"))
+grid:push(Text.new("Card 4"))
+
+-- In-place mutators:
+grid:set_cols(4)
+grid:set_gap(20.0)
+grid:set_col_gap(24.0)
+grid:set_row_gap(12.0)
+```
+
 #### Main-Axis `Arrangement` Presets:
 - `Arrangement.start()`: Align at start
 - `Arrangement.center()`: Centered along main axis

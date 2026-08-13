@@ -1,6 +1,7 @@
 pub mod column;
 pub mod container;
 pub mod freebox;
+pub mod grid;
 pub mod lua;
 pub mod lua_test;
 pub mod model;

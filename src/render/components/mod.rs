@@ -6,6 +6,7 @@ use crate::render::error::RenderError;
 pub mod column;
 pub mod container;
 pub mod freebox;
+pub mod grid;
 pub mod placeholder;
 pub mod row;
 pub mod style;
@@ -18,6 +19,7 @@ macro_rules! down_cast {
         $crate::down_cast!(
             $obj, $method, $val => [
                 Text,
+                Grid,
                 Column,
                 Row,
                 Container,
@@ -26,12 +28,14 @@ macro_rules! down_cast {
                 LocatedComponent,
                 PlaceHolder<LocatedComponent>,
                 PlaceHolder<Text>,
+                PlaceHolder<Grid>,
                 PlaceHolder<Column>,
                 PlaceHolder<Row>,
                 PlaceHolder<Container>,
                 PlaceHolder<FreeBox>,
                 PlaceHolder<SvgBox>,
                 ElementPointer<Text>,
+                ElementPointer<Grid>,
                 ElementPointer<Column>,
                 ElementPointer<Row>,
                 ElementPointer<Container>,
@@ -45,8 +49,8 @@ macro_rules! down_cast {
     ($val:expr, |$c:ident| $action:expr) => {
         $crate::down_cast!(
             $val, |$c| $action => [
-                Text, Column, Row, Container, FreeBox, SvgBox, LocatedComponent,
-                PlaceHolder<LocatedComponent>, PlaceHolder<Text>, PlaceHolder<Column>,
+                Text, Grid, Column, Row, Container, FreeBox, SvgBox, LocatedComponent,
+                PlaceHolder<LocatedComponent>, PlaceHolder<Text>, PlaceHolder<Grid>, PlaceHolder<Column>,
                 PlaceHolder<Row>, PlaceHolder<Container>, PlaceHolder<FreeBox>, PlaceHolder<SvgBox>
             ]
         )
@@ -56,7 +60,7 @@ macro_rules! down_cast {
         {
             use crate::render::components::{
                 column::Column, container::Container, freebox::{FreeBox, LocatedComponent},
-                placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
+                grid::Grid, placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
             };
 
             let mut handled = false;
@@ -77,7 +81,7 @@ macro_rules! down_cast {
     ($val:expr, |$c:ident| $action:expr => [ $( $ty:ty ),* $(,)? ]) => {
         {
             use crate::render::components::{
-                column::Column, container::Container, freebox::{FreeBox, LocatedComponent}, row::Row, svg::SvgBox, text::Text
+                column::Column, container::Container, freebox::{FreeBox, LocatedComponent}, grid::Grid, placeholder::PlaceHolder, row::Row, svg::SvgBox, text::Text
             };
 
             let mut result = None;

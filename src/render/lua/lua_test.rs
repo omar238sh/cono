@@ -11,11 +11,35 @@ pub fn create_lua_instance() -> mlua::Result<Lua> {
     let lua = Lua::new_with(StdLib::ALL, LuaOptions::default())?;
 
     let require = lua.create_function(|lua, module_name: String| {
-        let path = format!("./local/share/cono/{}.lua", module_name);
-        let src = std::fs::read_to_string(&path).map_err(|e| {
-            mlua::Error::RuntimeError(format!("cannot find module '{}': {}", module_name, e))
-        })?;
-        lua.load(&src).set_name(&module_name).eval::<mlua::Value>()
+        let base = dirs::data_dir()
+            .ok_or_else(|| mlua::Error::RuntimeError("cannot resolve data dir".into()))?
+            .join("cono");
+        let cwd = std::env::current_dir()
+            .map_err(|e| mlua::Error::RuntimeError(format!("cannot resolve cwd: {e}")))?;
+        let candidates = [
+            cwd.join(format!("{module_name}.lua")),
+            cwd.join(&module_name).join("init.lua"),
+            base.join(format!("{module_name}.lua")),
+            base.join(&module_name).join("init.lua"),
+        ];
+        let (resolved_path, src) = candidates
+            .iter()
+            .find_map(|p| std::fs::read_to_string(p).ok().map(|s| (p.clone(), s)))
+            .ok_or_else(|| {
+                mlua::Error::RuntimeError(format!(
+                    "cannot find module '{}': tried {}",
+                    module_name,
+                    candidates
+                        .iter()
+                        .map(|p| p.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ))
+            })?;
+
+        lua.load(&src)
+            .set_name(format!("@{}", resolved_path.display()))
+            .eval::<mlua::Value>()
     })?;
     lua.globals().set("require", require)?;
     register_globals(&lua)?;
@@ -303,5 +327,36 @@ fn test_lua_opacity_and_angle_progression() -> mlua::Result<()> {
     assert_eq!(frame.content.contents.len(), 1);
     let comp = &frame.content.contents[0];
     assert_eq!(comp.get_opacity().value(), 1.0);
+    Ok(())
+}
+
+#[test]
+fn test_lua_grid_component() -> mlua::Result<()> {
+    let lua = create_lua_instance()?;
+
+    let script = r##"
+        local grid = Grid.new(Size.new(800, 600), 3)
+            :gap(16.0)
+            :arrangment(Arrangement.center())
+            :alignment(Alignment.center())
+
+        grid:push(Text.new("Item 1"))
+        grid:push(Text.new("Item 2"))
+        grid:push(Text.new("Item 3"))
+        grid:push(Text.new("Item 4"))
+
+        grid:set_cols(4)
+        grid:set_col_gap(20.0)
+        grid:set_row_gap(10.0)
+
+        local container = Container.new(grid)
+        local model = Model.new(Size.youtube_video(), FpsTarget.f30())
+        model:add_component(container)
+
+        return grid:size().width
+    "##;
+
+    let width: f64 = lua.load(script).eval()?;
+    assert_eq!(width, 800.0);
     Ok(())
 }
