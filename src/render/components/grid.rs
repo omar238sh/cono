@@ -124,10 +124,10 @@ impl Grid {
         &mut self,
         freebox: &mut FreeBox,
         base_loc: Location,
-        loc_set: C,
+        component_set: C,
     ) -> Result<(), RenderError>
     where
-        C: Fn(Location) -> Location,
+        C: Fn(LocatedComponent) -> LocatedComponent,
     {
         let mut tree = TaffyTree::new();
         self.register_layout(&mut tree)?;
@@ -138,7 +138,8 @@ impl Grid {
                 super::freebox::Coordinate::Absolute(layout.location.x as f64),
                 super::freebox::Coordinate::Absolute(layout.location.x as f64),
             ) + base_loc.clone();
-            freebox.add(LocatedComponent::from_box(component.clone()).location(loc_set(loc)));
+            let c = LocatedComponent::from_box(component.clone()).location(loc);
+            freebox.add(component_set(c));
         }
 
         Ok(())
@@ -179,7 +180,7 @@ impl Component for Grid {
 
         let mut parent_style: taffy::Style = taffy::Style {
             display: Display::Grid,
-            grid_template_columns: vec![fr(1.0); self.cols],
+            grid_template_columns: vec![fr(1f32); self.cols],
             size: taffy::Size {
                 width: length(self.size()?.width as f32),
                 height: length(self.size()?.height as f32),
@@ -192,7 +193,7 @@ impl Component for Grid {
         };
 
         if let Some(r) = self.rows {
-            parent_style.grid_template_rows = vec![fr(1.0); r];
+            parent_style.grid_template_rows = vec![fr(1f32); r];
         }
 
         match self.style.arrangement() {
@@ -225,7 +226,7 @@ impl Component for Grid {
             Alignment::Center => parent_style.align_items = Some(AlignItems::CENTER),
         }
 
-        parent_style.padding = self.style.padding().to_rect();
+        parent_style.margin = self.style.padding().to_rect();
 
         let id = tree.new_with_children(parent_style, &ids)?;
         tree.compute_layout(id, taffy::Size::max_content())?;

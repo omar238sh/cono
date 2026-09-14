@@ -1,4 +1,7 @@
-use crate::render::components::text::{FontStyle, Text, Weight};
+use crate::render::{
+    components::text::{FontStyle, Text, Weight},
+    frame::Component,
+};
 
 impl mlua::FromLua for Text {
     fn from_lua(value: mlua::Value, _: &mlua::Lua) -> mlua::Result<Self> {
@@ -77,7 +80,23 @@ impl mlua::UserData for Text {
 
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("new", |_, content: String| Ok(Text::new(content)));
+        methods.add_function("new_static", |_, content: String| {
+            let mut text = Text::new(content);
+
+            text.update_child_progress(1.0);
+            text.pin();
+
+            Ok(text)
+        });
+
         methods.add_function("from_raw", |_, content: String| Ok(Text::from_raw(content)));
+
+        methods.add_function("from_raw_static", |_, content: String| {
+            let mut text = Text::new(content);
+            text.update_child_progress(1.0);
+            text.pin();
+            Ok(text)
+        });
         methods.add_method("color", |_, this, c: String| Ok(this.clone().color(c)));
         methods.add_method_mut("set_color", |_, this, c: String| {
             this.set_color(c);
@@ -103,6 +122,17 @@ impl mlua::UserData for Text {
             this.set_italic();
             Ok(())
         });
+
+        methods.add_method_mut("pin", |_, this, ()| {
+            this.pin();
+            Ok(())
+        });
+
+        methods.add_method_mut("unpin", |_, this, ()| {
+            this.unpin();
+            Ok(())
+        });
+
         methods.add_method("to_typst", |_, this, ()| Ok(this.to_typst()));
         methods.add_meta_method(mlua::MetaMethod::ToString, |_, this, ()| {
             Ok(format!("Text(\"{}\")", this.content))

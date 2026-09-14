@@ -78,6 +78,12 @@ impl Default for Fonts {
             .add_ttf("NotoKufiArabic-SemiBold")
             .add_ttf("NotoKufiArabic-Thin")
             .add_ttf("NotoKufiArabic-VariableFont_wght")
+            .add_ttf("FiraCode-Bold")
+            .add_ttf("FiraCode-Light")
+            .add_ttf("FiraCode-Medium")
+            .add_ttf("FiraCode-Regular")
+            .add_ttf("FiraCode-SemiBold")
+            .add_ttf("FiraCode-VariableFont_wght")
     }
 }
 

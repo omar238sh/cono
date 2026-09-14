@@ -2,7 +2,7 @@ use std::{fs::read_to_string, path::Path};
 
 use taffy::{NodeId, Style, TaffyTree, prelude::length};
 use vello::{Scene, kurbo::Affine};
-use vello_svg::{self as vsvg};
+use vello_svg::{self as vsvg, animate::append_animated, animation::AnimationConfig};
 
 use crate::render::{
     components::style::Padding, error::RenderError, frame::Component, models::Size,
@@ -10,20 +10,58 @@ use crate::render::{
 
 #[derive(Clone)]
 pub struct SvgBox {
-    pub(crate) scene: Scene,
-    // tree: Tree,
+    // pub(crate) scene: Scene,
     pub(crate) size: Size,
     pub(crate) padding: Padding,
+    pub(crate) progress: f64,
+    pub(crate) config: AnimationConfig,
+    content: String,
+    resize: Option<Size>,
+    scale: Option<f64>,
+    pin: bool,
     id: Option<NodeId>,
 }
 
 impl Component for SvgBox {
     fn render(&self, _: &TaffyTree) -> Result<Scene, RenderError> {
-        Ok(self.scene.clone())
+        let mut scene = Scene::new();
+        append_animated(&mut scene, &self.content, self.progress, &self.config)?;
+        dbg!(&self.progress);
+        if let Some(new_size) = self.resize {
+            (scene, _) = with_size(&scene, &self.size, new_size);
+        }
+
+        if let Some(factor) = self.scale {
+            (scene, _) = scale(&scene, self.size, factor)
+        }
+
+        Ok(scene.clone())
+    }
+
+    fn pin(&mut self) {
+        self.pin = true;
+    }
+
+    fn unpin(&mut self) {
+        self.pin = false;
+    }
+
+    fn update_child_progress(&mut self, _progress: f64) {
+        self.set_progress(_progress);
     }
 
     fn size(&self) -> std::result::Result<Size, RenderError> {
-        Ok(self.size.clone())
+        let mut size = self.size.clone();
+
+        if let Some(new_size) = self.resize {
+            size = new_size;
+        }
+
+        if let Some(factor) = self.scale {
+            size = Size::new(size.width * factor, size.height * factor);
+        }
+
+        Ok(size)
     }
 
     fn register_layout(
@@ -38,7 +76,7 @@ impl Component for SvgBox {
                 width: length(self.size.width as f32),
                 height: length(self.size.height as f32),
             },
-            padding: self.padding.to_rect(),
+            margin: self.padding.to_rect(),
             ..Default::default()
         };
         let id = tree.new_leaf(style)?;
@@ -68,14 +106,19 @@ impl SvgBox {
         let width = tree.size().width().ceil() as f64;
         let height = tree.size().height().ceil() as f64;
 
-        let scene = vsvg::render_tree(&tree);
+        // let scene = vsvg::render_tree(&tree);
 
         Ok(Self {
-            scene,
-            // tree,
+            pin: false,
             padding: Padding::new(0.0),
             size: Size::new(width, height),
             id: None,
+            progress: 0f64,
+            // tree,
+            resize: None,
+            scale: None,
+            config: AnimationConfig::draw(),
+            content,
         })
     }
 
@@ -92,51 +135,63 @@ impl SvgBox {
         let width = tree.size().width().ceil() as f64;
         let height = tree.size().height().ceil() as f64;
 
-        let scene = vsvg::render_tree(&tree);
-
         Ok(Self {
-            scene,
-            // tree,
             padding: Padding::new(0.0),
             size: Size::new(width, height),
             id: None,
+            progress: 0.0,
+            resize: None,
+            scale: None,
+            config: AnimationConfig::draw(),
+            content,
+            pin: false,
         })
     }
 
+    pub fn set_progress(&mut self, progress: f64) {
+        if !self.pin {
+            self.progress = progress
+        };
+    }
+
     pub fn with_size(mut self, new_size: Size) -> Self {
-        let mut new_scene = Scene::new();
-        let height_factor = new_size.height / self.size.height;
-        let width_factor = new_size.width / self.size.width;
-        new_scene.append(
-            &self.scene,
-            Some(Affine::scale_non_uniform(
-                width_factor as f64,
-                height_factor as f64,
-            )),
-        );
-        self.scene = new_scene;
-        self.size = new_size;
+        self.resize = Some(new_size);
         self
     }
 
     pub fn scale(mut self, factor: f64) -> Self {
-        let mut new_scene = Scene::new();
-        new_scene.append(&self.scene, Some(Affine::scale(factor)));
-        self.scene = new_scene;
-        self.size = Size::new(self.size.width * factor, self.size.height * factor);
+        self.scale = Some(factor);
         self
     }
 
     pub fn set_scale(&mut self, factor: f64) {
-        let mut new_scene = Scene::new();
-        new_scene.append(&self.scene, Some(Affine::scale(factor)));
-        self.scene = new_scene;
-        self.size = Size::new(self.size.width * factor, self.size.height * factor);
+        self.scale = Some(factor);
     }
 
     pub fn set_padding(&mut self, padding: Padding) {
         self.padding = padding;
     }
+}
+
+pub fn with_size(scene: &Scene, size: &Size, new_size: Size) -> (Scene, Size) {
+    let mut new_scene = Scene::new();
+    let height_factor = new_size.height / size.height;
+    let width_factor = new_size.width / size.width;
+    new_scene.append(
+        &scene,
+        Some(Affine::scale_non_uniform(
+            width_factor as f64,
+            height_factor as f64,
+        )),
+    );
+    (new_scene, new_size)
+}
+
+pub fn scale(scene: &Scene, size: Size, factor: f64) -> (Scene, Size) {
+    let mut new_scene = Scene::new();
+    new_scene.append(scene, Some(Affine::scale(factor)));
+    let new_size = Size::new(size.width * factor, size.height * factor);
+    (new_scene, new_size)
 }
 
 #[cfg(test)]

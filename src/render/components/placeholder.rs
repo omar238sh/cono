@@ -81,6 +81,18 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
         self.pointer.with(|s| s.render(tree))?
     }
 
+    fn pin(&mut self) {
+        self.pointer.with_mut(|c| {
+            c.pin();
+        });
+    }
+
+    fn unpin(&mut self) {
+        self.pointer.with_mut(|c| {
+            c.unpin();
+        });
+    }
+
     fn size(&self) -> std::result::Result<Size, RenderError> {
         self.pointer.with(|s| s.size())?
     }
@@ -106,6 +118,14 @@ impl<C: Component + Clone + 'static> Component for PlaceHolder<C> {
 
     fn get_angle(&self) -> Option<super::freebox::Angle> {
         self.pointer.with(|s| s.get_angle()).unwrap_or(None)
+    }
+
+    fn update_child_progress(&mut self, _progress: f64) {
+        self.pointer
+            .with_mut(|a| {
+                a.update_child_progress(_progress);
+            })
+            .unwrap();
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

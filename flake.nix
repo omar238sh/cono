@@ -9,13 +9,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    kimi = {
-      url = "github:MoonshotAI/kimi-cli";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = {  nixpkgs, fenix,kimi ,... }:
+  outputs = {  nixpkgs, fenix,... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -50,10 +46,9 @@
           pkgs.vulkan-loader
           pkgs.mesa
           pkgs.antigravity-cli
-          pkgs.ffmpeg
+          pkgs.ffmpeg_8
           pkgs.clang
           pkgs.libclang
-          kimi.packages.${system}.default
           pkgs.gdb
           pkgs.lua-language-server
         ];
@@ -61,10 +56,13 @@
           export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
             pkgs.stdenv.cc.cc.lib
             pkgs.vulkan-loader
-            pkgs.ffmpeg
+            pkgs.ffmpeg_8
           ]}:$LD_LIBRARY_PATH"
+
+          export VK_ICD_FILENAMES="/run/opengl-driver/share/vulkan/icd.d/nvidia_icd.json"
+          export VK_LAYER_PATH="/run/opengl-driver/share/vulkan/explicit_layer.d"
   
-          export VK_ICD_FILENAMES="${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.x86_64.json"
+          # export VK_ICD_FILENAMES="${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.x86_64.json"
           export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
   
           echo "🚀 Rust development environment ready!"

@@ -386,11 +386,11 @@ function Row:set_padding(pad) end
 ---@field size Size Container dimensions
 Grid = {}
 
--- Append grid to freebox
+-- Append grid to freebox and you can edit component before add it to edit opacity or rotation or location for animation
 --@param freebox FreeBox
 --@param base_loc Location
---@param set_location fun(loc : Location): Location
-function append_to_freebox(freebox , base_loc , set_location) end
+--@param set_component fun(comp : LocatedComponent): LocatedComponent
+function append_to_freebox(freebox , base_loc , set_component) end
 
 --- Creates a new 2D Grid layout container.
 ---@param size Size Container dimensions
@@ -837,6 +837,11 @@ function LocatedComponent:get_location() end
 ---@class FreeBox
 ---@field size Size Canvas size
 FreeBox = {}
+
+-- Edit every Component in freebox by ref mut
+-- Useful for clear freebox with animation
+--@param callback fun(comp : LocatedComponent) 
+function FreeBox.for_each(callback) end
 
 --- Creates a new FreeBox container.
 ---@param size Size

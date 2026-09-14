@@ -1,8 +1,10 @@
 use std::{
     ops::{Add, Mul},
     path::Path,
+    sync::{Arc, mpsc::sync_channel},
+    thread,
+    time::Instant,
 };
-
 use taffy::TaffyTree;
 use vello::Scene as VelloScene;
 
@@ -99,6 +101,146 @@ impl Scene {
         Ok(())
     }
 
+    // pub fn render(&self, path: &Path) -> Result<(), RenderError> {
+    //     ffmpeg_next::init().map_err(|_| RenderError::FfmpegError)?;
+
+    //     if self.frames.is_empty() {
+    //         return Ok(());
+    //     }
+
+    //     // Determine even dimensions based on the first frame
+    //     let width = (self.frames[0].size.width as u32) / 2 * 2;
+    //     let height = (self.frames[0].size.height as u32) / 2 * 2;
+
+    //     let mut octx = ffmpeg_next::format::output(path)
+    //         .map_err(|e| RenderError::CustomError(format!("Cannot open output file: {}", e)))?;
+
+    //     let codec = ffmpeg_next::codec::encoder::find_by_name("h264_nvenc")
+    //         .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_amf"))
+    //         .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_qsv"))
+    //         .or_else(|| ffmpeg_next::codec::encoder::find(ffmpeg_next::codec::Id::H264))
+    //         .ok_or_else(|| {
+    //             RenderError::CustomError("No suitable H264 encoder found".to_string())
+    //         })?;
+
+    //     let encoder_ctx = ffmpeg_next::codec::context::Context::new_with_codec(codec);
+    //     let mut opts = ffmpeg_next::Dictionary::new();
+    //     opts.set("preset", "p4");
+    //     opts.set("tune", "hq");
+    //     let mut encoder = encoder_ctx
+    //         .encoder()
+    //         .video()
+    //         .map_err(|e| RenderError::CustomError(format!("Cannot create video encoder: {}", e)))?;
+
+    //     encoder.set_width(width);
+    //     encoder.set_height(height);
+    //     encoder.set_format(ffmpeg_next::format::Pixel::YUV420P);
+
+    //     let fps = self.fps.value();
+    //     encoder.set_frame_rate(Some(ffmpeg_next::Rational::new(fps as i32, 1)));
+    //     encoder.set_time_base(ffmpeg_next::Rational::new(1, fps as i32));
+
+    //     if octx
+    //         .format()
+    //         .flags()
+    //         .contains(ffmpeg_next::format::Flags::GLOBAL_HEADER)
+    //     {
+    //         encoder.set_flags(ffmpeg_next::codec::Flags::GLOBAL_HEADER);
+    //     }
+
+    //     let mut opened_encoder = encoder
+    //         .open_with(opts)
+    //         .map_err(|e| RenderError::CustomError(format!("Cannot open encoder: {}", e)))?;
+
+    //     let ost_index = {
+    //         let mut ost = octx
+    //             .add_stream(codec)
+    //             .map_err(|e| RenderError::CustomError(format!("Cannot add video stream: {}", e)))?;
+    //         ost.set_parameters(&opened_encoder);
+    //         ost.index()
+    //     };
+
+    //     octx.write_header()
+    //         .map_err(|e| RenderError::CustomError(format!("Cannot write header: {}", e)))?;
+
+    //     let ost_time_base = octx.stream(ost_index).unwrap().time_base();
+
+    //     let mut scaler = ffmpeg_next::software::scaling::Context::get(
+    //         ffmpeg_next::format::Pixel::RGBA,
+    //         width,
+    //         height,
+    //         ffmpeg_next::format::Pixel::YUV420P,
+    //         width,
+    //         height,
+    //         ffmpeg_next::software::scaling::Flags::BILINEAR,
+    //     )
+    //     .map_err(|e| RenderError::CustomError(format!("Cannot create scaler: {}", e)))?;
+
+    //     let mut gpu_renderer = SceneGpuRenderer::new()?;
+    //     let mut cache = Vec::new();
+    //     for rendered_frame in self.frames.iter() {
+    //         let image = gpu_renderer.render_to_image(&rendered_frame.scene, width, height)?;
+    //         cache.push(image);
+    //     }
+    //     for (i, image) in cache.iter().enumerate() {
+    //         let mut src_frame =
+    //             ffmpeg_next::frame::Video::new(ffmpeg_next::format::Pixel::RGBA, width, height);
+
+    //         let stride = src_frame.stride(0);
+    //         let data = src_frame.data_mut(0);
+    //         let raw_pixels = image.as_raw();
+
+    //         for y in 0..height as usize {
+    //             let src_start = y * (width as usize * 4);
+    //             let src_end = src_start + (width as usize * 4);
+    //             let dst_start = y * stride;
+    //             let dst_end = dst_start + (width as usize * 4);
+    //             data[dst_start..dst_end].copy_from_slice(&raw_pixels[src_start..src_end]);
+    //         }
+
+    //         let mut dst_frame =
+    //             ffmpeg_next::frame::Video::new(ffmpeg_next::format::Pixel::YUV420P, width, height);
+
+    //         scaler
+    //             .run(&src_frame, &mut dst_frame)
+    //             .map_err(|e| RenderError::CustomError(format!("Scaler failed: {}", e)))?;
+
+    //         dst_frame.set_pts(Some(i as i64));
+
+    //         opened_encoder.send_frame(&dst_frame).map_err(|e| {
+    //             RenderError::CustomError(format!("Encoder send frame failed: {}", e))
+    //         })?;
+
+    //         let mut packet = ffmpeg_next::Packet::empty();
+    //         while opened_encoder.receive_packet(&mut packet).is_ok() {
+    //             packet.rescale_ts(opened_encoder.time_base(), ost_time_base);
+    //             packet.set_stream(ost_index);
+    //             packet
+    //                 .write_interleaved(&mut octx)
+    //                 .map_err(|e| RenderError::CustomError(format!("Cannot write packet: {}", e)))?;
+    //         }
+    //     }
+
+    //     // Flush the encoder
+    //     opened_encoder
+    //         .send_eof()
+    //         .map_err(|e| RenderError::CustomError(format!("Encoder flush failed: {}", e)))?;
+
+    //     let mut packet = ffmpeg_next::Packet::empty();
+    //     while opened_encoder.receive_packet(&mut packet).is_ok() {
+    //         packet.rescale_ts(opened_encoder.time_base(), ost_time_base);
+    //         packet.set_stream(ost_index);
+    //         packet
+    //             .write_interleaved(&mut octx)
+    //             .map_err(|e| RenderError::CustomError(format!("Cannot write packet: {}", e)))?;
+    //     }
+
+    //     octx.write_trailer()
+    //         .map_err(|e| RenderError::CustomError(format!("Cannot write trailer: {}", e)))?;
+
+    //     Ok(())
+    // }
+
     pub fn render(&self, path: &Path) -> Result<(), RenderError> {
         ffmpeg_next::init().map_err(|_| RenderError::FfmpegError)?;
 
@@ -106,109 +248,129 @@ impl Scene {
             return Ok(());
         }
 
-        // Determine even dimensions based on the first frame
         let width = (self.frames[0].size.width as u32) / 2 * 2;
         let height = (self.frames[0].size.height as u32) / 2 * 2;
+        let fps = self.fps.value();
+        let path_buf = path.to_path_buf();
 
-        let mut octx = ffmpeg_next::format::output(path)
-            .map_err(|e| RenderError::CustomError(format!("Cannot open output file: {}", e)))?;
+        let (tx, rx) = sync_channel::<Vec<u8>>(16);
 
-        let codec = ffmpeg_next::codec::encoder::find_by_name("h264_nvenc")
-            .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_amf"))
-            .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_qsv"))
-            .or_else(|| ffmpeg_next::codec::encoder::find(ffmpeg_next::codec::Id::H264))
-            .ok_or_else(|| {
-                RenderError::CustomError("No suitable H264 encoder found".to_string())
+        let encoder_handle = thread::spawn(move || -> Result<(), RenderError> {
+            let mut octx = ffmpeg_next::format::output(&path_buf)
+                .map_err(|e| RenderError::CustomError(format!("Cannot open output file: {}", e)))?;
+
+            let codec = ffmpeg_next::codec::encoder::find_by_name("h264_nvenc")
+                .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_amf"))
+                .or_else(|| ffmpeg_next::codec::encoder::find_by_name("h264_qsv"))
+                .or_else(|| ffmpeg_next::codec::encoder::find(ffmpeg_next::codec::Id::H264))
+                .ok_or_else(|| RenderError::CustomError("No encoder found".to_string()))?;
+
+            let encoder_ctx = ffmpeg_next::codec::context::Context::new_with_codec(codec);
+            let mut opts = ffmpeg_next::Dictionary::new();
+
+            let target_pix_fmt = if codec.name().contains("nvenc") {
+                opts.set("preset", "p1");
+                opts.set("tune", "ull");
+                opts.set("zerolatency", "1");
+                ffmpeg_next::format::Pixel::NV12
+            } else {
+                opts.set("preset", "ultrafast");
+                opts.set("tune", "zerolatency");
+                opts.set("crf", "23");
+                ffmpeg_next::format::Pixel::YUV420P
+            };
+
+            let mut encoder = encoder_ctx.encoder().video().map_err(|e| {
+                RenderError::CustomError(format!("Cannot create video encoder: {}", e))
             })?;
 
-        let encoder_ctx = ffmpeg_next::codec::context::Context::new_with_codec(codec);
-        let mut opts = ffmpeg_next::Dictionary::new();
-        opts.set("preset", "p4");
-        opts.set("tune", "hq");
-        let mut encoder = encoder_ctx
-            .encoder()
-            .video()
-            .map_err(|e| RenderError::CustomError(format!("Cannot create video encoder: {}", e)))?;
+            encoder.set_width(width);
+            encoder.set_height(height);
+            encoder.set_format(target_pix_fmt);
+            encoder.set_frame_rate(Some(ffmpeg_next::Rational::new(fps as i32, 1)));
+            encoder.set_time_base(ffmpeg_next::Rational::new(1, fps as i32));
 
-        encoder.set_width(width);
-        encoder.set_height(height);
-        encoder.set_format(ffmpeg_next::format::Pixel::YUV420P);
-
-        let fps = self.fps.value();
-        encoder.set_frame_rate(Some(ffmpeg_next::Rational::new(fps as i32, 1)));
-        encoder.set_time_base(ffmpeg_next::Rational::new(1, fps as i32));
-
-        if octx
-            .format()
-            .flags()
-            .contains(ffmpeg_next::format::Flags::GLOBAL_HEADER)
-        {
-            encoder.set_flags(ffmpeg_next::codec::Flags::GLOBAL_HEADER);
-        }
-
-        let mut opened_encoder = encoder
-            .open_with(opts)
-            .map_err(|e| RenderError::CustomError(format!("Cannot open encoder: {}", e)))?;
-
-        let ost_index = {
-            let mut ost = octx
-                .add_stream(codec)
-                .map_err(|e| RenderError::CustomError(format!("Cannot add video stream: {}", e)))?;
-            ost.set_parameters(&opened_encoder);
-            ost.index()
-        };
-
-        octx.write_header()
-            .map_err(|e| RenderError::CustomError(format!("Cannot write header: {}", e)))?;
-
-        let ost_time_base = octx.stream(ost_index).unwrap().time_base();
-
-        let mut scaler = ffmpeg_next::software::scaling::Context::get(
-            ffmpeg_next::format::Pixel::RGBA,
-            width,
-            height,
-            ffmpeg_next::format::Pixel::YUV420P,
-            width,
-            height,
-            ffmpeg_next::software::scaling::Flags::BILINEAR,
-        )
-        .map_err(|e| RenderError::CustomError(format!("Cannot create scaler: {}", e)))?;
-
-        let mut gpu_renderer = SceneGpuRenderer::new()?;
-
-        for (i, rendered_frame) in self.frames.iter().enumerate() {
-            let image = gpu_renderer.render_to_image(&rendered_frame.scene, width, height)?;
-
-            // Load RGBA into input frame
-            let mut src_frame =
-                ffmpeg_next::frame::Video::new(ffmpeg_next::format::Pixel::RGBA, width, height);
-
-            let stride = src_frame.stride(0);
-            let data = src_frame.data_mut(0);
-            let raw_pixels = image.as_raw();
-
-            for y in 0..height as usize {
-                let src_start = y * (width as usize * 4);
-                let src_end = src_start + (width as usize * 4);
-                let dst_start = y * stride;
-                let dst_end = dst_start + (width as usize * 4);
-                data[dst_start..dst_end].copy_from_slice(&raw_pixels[src_start..src_end]);
+            if octx
+                .format()
+                .flags()
+                .contains(ffmpeg_next::format::Flags::GLOBAL_HEADER)
+            {
+                encoder.set_flags(ffmpeg_next::codec::Flags::GLOBAL_HEADER);
             }
 
-            let mut dst_frame =
-                ffmpeg_next::frame::Video::new(ffmpeg_next::format::Pixel::YUV420P, width, height);
+            let mut opened_encoder = encoder
+                .open_with(opts)
+                .map_err(|e| RenderError::CustomError(format!("Cannot open encoder: {}", e)))?;
 
-            scaler
-                .run(&src_frame, &mut dst_frame)
-                .map_err(|e| RenderError::CustomError(format!("Scaler failed: {}", e)))?;
+            let ost_index = {
+                let mut ost = octx
+                    .add_stream(codec)
+                    .map_err(|e| RenderError::CustomError(format!("Cannot add stream: {}", e)))?;
+                ost.set_parameters(&opened_encoder);
+                ost.index()
+            };
 
-            dst_frame.set_pts(Some(i as i64));
+            octx.write_header()
+                .map_err(|e| RenderError::CustomError(format!("Cannot write header: {}", e)))?;
+            let ost_time_base = octx.stream(ost_index).unwrap().time_base();
 
-            opened_encoder.send_frame(&dst_frame).map_err(|e| {
-                RenderError::CustomError(format!("Encoder send frame failed: {}", e))
-            })?;
+            let mut scaler = ffmpeg_next::software::scaling::Context::get(
+                ffmpeg_next::format::Pixel::RGBA,
+                width,
+                height,
+                target_pix_fmt,
+                width,
+                height,
+                ffmpeg_next::software::scaling::Flags::POINT,
+            )
+            .map_err(|e| RenderError::CustomError(format!("Cannot create scaler: {}", e)))?;
 
+            let mut src_frame =
+                ffmpeg_next::frame::Video::new(ffmpeg_next::format::Pixel::RGBA, width, height);
+            let mut dst_frame = ffmpeg_next::frame::Video::new(target_pix_fmt, width, height);
             let mut packet = ffmpeg_next::Packet::empty();
+
+            let stride = src_frame.stride(0);
+            let row_len = width as usize * 4;
+            let mut frame_idx = 0i64;
+
+            while let Ok(raw_pixels) = rx.recv() {
+                let data = src_frame.data_mut(0);
+                if stride == row_len {
+                    data[..raw_pixels.len()].copy_from_slice(&raw_pixels);
+                } else {
+                    for (dst_row, src_row) in data
+                        .chunks_exact_mut(stride)
+                        .zip(raw_pixels.chunks_exact(row_len))
+                    {
+                        dst_row[..row_len].copy_from_slice(src_row);
+                    }
+                }
+
+                scaler
+                    .run(&src_frame, &mut dst_frame)
+                    .map_err(|e| RenderError::CustomError(format!("Scaler failed: {}", e)))?;
+
+                dst_frame.set_pts(Some(frame_idx));
+                frame_idx += 1;
+
+                opened_encoder.send_frame(&dst_frame).map_err(|e| {
+                    RenderError::CustomError(format!("Encoder send frame failed: {}", e))
+                })?;
+
+                while opened_encoder.receive_packet(&mut packet).is_ok() {
+                    packet.rescale_ts(opened_encoder.time_base(), ost_time_base);
+                    packet.set_stream(ost_index);
+                    packet.write_interleaved(&mut octx).map_err(|e| {
+                        RenderError::CustomError(format!("Cannot write packet: {}", e))
+                    })?;
+                }
+            }
+
+            opened_encoder
+                .send_eof()
+                .map_err(|e| RenderError::CustomError(format!("Encoder flush failed: {}", e)))?;
+
             while opened_encoder.receive_packet(&mut packet).is_ok() {
                 packet.rescale_ts(opened_encoder.time_base(), ost_time_base);
                 packet.set_stream(ost_index);
@@ -216,24 +378,19 @@ impl Scene {
                     .write_interleaved(&mut octx)
                     .map_err(|e| RenderError::CustomError(format!("Cannot write packet: {}", e)))?;
             }
-        }
 
-        // Flush the encoder
-        opened_encoder
-            .send_eof()
-            .map_err(|e| RenderError::CustomError(format!("Encoder flush failed: {}", e)))?;
+            octx.write_trailer()
+                .map_err(|e| RenderError::CustomError(format!("Cannot write trailer: {}", e)))?;
 
-        let mut packet = ffmpeg_next::Packet::empty();
-        while opened_encoder.receive_packet(&mut packet).is_ok() {
-            packet.rescale_ts(opened_encoder.time_base(), ost_time_base);
-            packet.set_stream(ost_index);
-            packet
-                .write_interleaved(&mut octx)
-                .map_err(|e| RenderError::CustomError(format!("Cannot write packet: {}", e)))?;
-        }
+            Ok(())
+        });
 
-        octx.write_trailer()
-            .map_err(|e| RenderError::CustomError(format!("Cannot write trailer: {}", e)))?;
+        let mut gpu_renderer = SceneGpuRenderer::new()?;
+        let scenes = self.frames.iter().map(|f| Arc::new(f.scene.clone()));
+
+        gpu_renderer.render_all_to_channel(scenes, width, height, tx)?;
+        // drop(tx);
+        encoder_handle.join().unwrap()?;
 
         Ok(())
     }

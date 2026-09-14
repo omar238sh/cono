@@ -1,4 +1,4 @@
-use taffy::LengthPercentage;
+use taffy::LengthPercentageAuto;
 
 use crate::render::models::Size;
 
@@ -29,7 +29,11 @@ impl Style {
     }
 
     pub fn size(&self) -> Size {
-        self.size
+        let s = self.size;
+        Size {
+            width: s.width + self.padding.left + self.padding.right,
+            height: s.height + self.padding.top + self.padding.bottom,
+        }
     }
 
     pub fn alignment(&self) -> &Alignment {
@@ -91,12 +95,12 @@ impl Padding {
         self.bottom = value;
     }
 
-    pub fn to_rect(&self) -> taffy::Rect<LengthPercentage> {
+    pub fn to_rect(&self) -> taffy::Rect<LengthPercentageAuto> {
         taffy::Rect {
-            left: LengthPercentage::length(self.left as f32),
-            right: LengthPercentage::length(self.right as f32),
-            top: LengthPercentage::length(self.top as f32),
-            bottom: LengthPercentage::length(self.bottom as f32),
+            left: LengthPercentageAuto::length(self.left as f32),
+            right: LengthPercentageAuto::length(self.right as f32),
+            top: LengthPercentageAuto::length(self.top as f32),
+            bottom: LengthPercentageAuto::length(self.bottom as f32),
         }
     }
 

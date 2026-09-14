@@ -32,6 +32,17 @@ impl mlua::UserData for SvgBox {
         methods.add_function("new", |_, content: String| {
             SvgBox::new(content).map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
+
+        methods.add_function("new_static", |_, content: String| {
+            let mut svg =
+                SvgBox::new(content).map_err(|e| mlua::Error::external(format!("{:?}", e)))?;
+
+            svg.set_progress(1.0);
+            svg.pin();
+
+            Ok(svg)
+        });
+
         methods.add_function("from_path", |lua, path_str: String| {
             let raw = Path::new(&path_str);
 
@@ -65,10 +76,12 @@ impl mlua::UserData for SvgBox {
         methods.add_method("padding", |_, this, pad: Padding| {
             Ok(this.clone().padding(pad))
         });
+
         methods.add_method_mut("set_padding", |_, this, pad: Padding| {
             this.set_padding(pad);
             Ok(())
         });
+
         methods.add_method("with_size", |_, this, size: Size| {
             Ok(this.clone().with_size(size))
         });
@@ -79,6 +92,21 @@ impl mlua::UserData for SvgBox {
             this.set_scale(factor);
             Ok(())
         });
+        methods.add_method_mut("set_progress", |_, this, progress: f64| {
+            this.set_progress(progress);
+            Ok(())
+        });
+
+        methods.add_method_mut("pin", |_, this, ()| {
+            this.pin();
+            Ok(())
+        });
+
+        methods.add_method_mut("unpin", |_, this, ()| {
+            this.unpin();
+            Ok(())
+        });
+
         methods.add_meta_method(mlua::MetaMethod::ToString, |_, this, ()| {
             Ok(format!("SvgBox({}x{})", this.size.width, this.size.height))
         });

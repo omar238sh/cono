@@ -110,7 +110,7 @@ impl Component for Container {
         let child_id = tree.layout(self.child.layout()?)?;
 
         let mut scene = Scene::new();
-        let size = self.computed_size(tree)?;
+        let size = self.size()?;
         let rect = Rect::new(0.0, 0.0, size.width, size.height).to_rounded_rect(self.border_radius);
         if let Some(background_color) = self.background_color {
             scene.fill(
@@ -164,7 +164,11 @@ impl Component for Container {
     }
 
     fn size(&self) -> std::result::Result<Size, RenderError> {
-        Ok(self.size)
+        let s = self.size;
+        Ok(Size {
+            width: s.width + self.padding.right + self.padding.left,
+            height: s.height + self.padding.bottom + self.padding.top,
+        })
     }
 
     fn register_layout(
@@ -181,7 +185,7 @@ impl Component for Container {
             },
             display: taffy::Display::Flex,
             align_items: Some(taffy::AlignItems::CENTER),
-            // padding: self.padding.to_rect(),
+            margin: self.padding.to_rect(),
             justify_content: Some(JustifyContent::CENTER),
             ..Default::default()
         };

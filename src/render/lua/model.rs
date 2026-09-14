@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use mlua::AnyUserData;
+
 use crate::{
     down_cast,
     render::{
@@ -123,7 +125,7 @@ impl mlua::UserData for Model {
                 }).ok_or_else(|| {mlua::Error::external(format!("Failed to downcast commponent"))})                
             },
         );
-
+        
         methods.add_method("create_frame", |_, this, ()| Ok(this.create_frame()));
 
         methods.add_method_mut("push_frame", |_, this, frame: Frame| {
@@ -142,6 +144,7 @@ impl mlua::UserData for Model {
             this.render_video(Path::new(&path_str))
                 .map_err(|e| mlua::Error::external(format!("{:?}", e)))
         });
+
 
         // Function-taking methods in Lua!
         methods.add_method_mut(

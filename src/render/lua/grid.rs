@@ -4,7 +4,7 @@ use crate::{
     down_cast,
     render::{
         components::{
-            freebox::{FreeBox, Location},
+            freebox::{FreeBox, LocatedComponent, Location},
             grid::Grid,
             style::{Alignment, Arrangement, Padding},
         },
@@ -98,9 +98,9 @@ impl UserData for Grid {
             "append_to_freebox",
             |_, this, (freebox, base_loc, callback): (AnyUserData, Location, Function)| {
                 let mut fbox = freebox.borrow_mut::<FreeBox>()?;
-                let call = |loc: Location| -> Location {
+                let call = |comp: LocatedComponent| -> LocatedComponent {
                     callback
-                        .call::<Location>(loc)
+                        .call::<LocatedComponent>(comp)
                         .expect("Failed to execute Lua callback")
                 };
                 this.append_to_freebox(&mut *fbox, base_loc, call)

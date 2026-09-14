@@ -109,6 +109,12 @@ pub trait Component: ComponentClone + Send + 'static {
     fn register_layout(&mut self, tree: &mut TaffyTree) -> Result<NodeId, RenderError>;
     fn layout(&self) -> Result<NodeId, RenderError>;
 
+    fn update_child_progress(&mut self, _progress: f64) {}
+
+    fn pin(&mut self) {}
+
+    fn unpin(&mut self) {}
+
     fn get_location(&self) -> Option<Location> {
         None
     }

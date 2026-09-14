@@ -1,11 +1,10 @@
-use mlua::AnyUserData;
+use mlua::{AnyUserData, Function};
 
 use crate::{
     down_cast,
     render::{
-        components::{
-            freebox::{Anchor, Angle, Coordinate, FreeBox, LocatedComponent, Location, Opacity},
-            placeholder::PlaceHolder,
+        components::freebox::{
+            Anchor, Angle, Coordinate, FreeBox, LocatedComponent, Location, Opacity,
         },
         models::Size,
     },
@@ -334,6 +333,16 @@ impl mlua::UserData for LocatedComponent {
             Ok(())
         });
 
+        methods.add_method_mut("pin_inner", |_, this, ()| {
+            this.pin();
+            Ok(())
+        });
+
+        methods.add_method_mut("unpin_inner", |_, this, ()| {
+            this.unpin();
+            Ok(())
+        });
+
         methods.add_method("angle", |_, this, ang: Angle| {
             let mut c = this.clone();
             c.angle = ang;
@@ -376,6 +385,21 @@ impl mlua::UserData for FreeBox {
             down_cast!(val, |a| {
                 this.add(a.clone());
             });
+            Ok(())
+        });
+
+        methods.add_method_mut("for_each", |lua, this, f: Function| {
+            let func = |located_comp: &mut LocatedComponent| {
+                lua.scope(|scope| {
+                    let a = scope.create_userdata_ref_mut(located_comp)?;
+                    f.call::<LocatedComponent>(a)?;
+                    Ok(())
+                })?;
+                Ok::<(), mlua::Error>(())
+            };
+            this.contents
+                .iter_mut()
+                .for_each(|item| func(item).expect("failed to run callback"));
             Ok(())
         });
     }

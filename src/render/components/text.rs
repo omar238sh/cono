@@ -25,7 +25,8 @@ pub struct Text {
     pub style: Option<FontStyle>,
     pub cache: RefCell<Option<SvgBox>>,
     pub is_raw: bool,
-    // pub id: Option<NodeId>,
+    pub progress: f64,
+    pub pin: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -85,7 +86,8 @@ impl Text {
             style: None,
             cache: RefCell::new(None),
             is_raw: false,
-            // id: None,
+            progress: 0.0,
+            pin: false,
         }
     }
 
@@ -99,6 +101,8 @@ impl Text {
             style: None,
             cache: RefCell::new(None),
             is_raw: true,
+            progress: 0.0,
+            pin: false,
         }
     }
 
@@ -271,14 +275,21 @@ impl Text {
         self.style = Some(FontStyle::Italic);
         *self.cache.borrow_mut() = None;
     }
+
     fn compile(&self) -> Result<(), RenderError> {
+        if let Some(_) = &*self.cache.borrow() {
+            return Ok(());
+        }
         let mut world = COMPILER
             .lock()
             .map_err(|_| RenderError::TypstCompilerError)?;
         let src = self.to_typst();
         world.raw_content(src);
         let svg = world.to_svgs()?.pop();
-        *self.cache.borrow_mut() = svg;
+        if let Some(mut s) = svg {
+            s.update_child_progress(self.progress);
+            *self.cache.borrow_mut() = Some(s);
+        }
         Ok(())
     }
 }
@@ -294,6 +305,21 @@ impl Component for Text {
             None => Err(RenderError::CustomError(
                 "Text hasn't been compiled!".to_string(),
             )),
+        }
+    }
+
+    fn pin(&mut self) {
+        self.pin = true;
+    }
+
+    fn unpin(&mut self) {
+        self.pin = false;
+    }
+
+    fn update_child_progress(&mut self, _progress: f64) {
+        if !self.pin {
+            self.progress = _progress;
+            *self.cache.borrow_mut() = None;
         }
     }
 

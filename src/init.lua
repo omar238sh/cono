@@ -1,12 +1,12 @@
 local compose = require("compose")
 
 local scene = compose.scene(Size.youtube_shorts(), FpsTarget.f60())
+compose.use_theme(scene , "ocean")
 
 local title = compose.text("Golden Ratio", 56, "#F5E0DC", Weight.bold())
 local eq = compose.math("phi = (1 + sqrt(5)) / 2", 48)
 
 scene
-    :background()
     :actor("t", title, compose.center())
     :actor("e", eq, compose.center())
 
